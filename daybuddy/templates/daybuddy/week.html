@@ -60,7 +60,7 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
   margin:.18rem 0;
   font-size: var(--sz, 16px);
   display:flex;                 /* allow inline badges */
-  align-items:center;
+  align-items:flex-start;
   gap:6px;
 }
 /* ensure flex children truncate nicely so widths stay uniform */
@@ -92,6 +92,17 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
 .who{opacity:.75}
 .evt b{font-weight:700}
 .evt span, .evt b { color:#fff; text-shadow:0 1px 1px rgba(0,0,0,.25); }
+/* ---- Time grid (7:00–19:00 in 30-min slots) ----------------------------- */
+.timegrid{--gutter:60px;display:grid;grid-template-rows:repeat(24,28px);row-gap:0;margin:6px 0 8px 0;position:relative}
+.slot{border-top:1px dashed #2a3750;position:relative; z-index:0}
+.slot.hour{border-top:1px solid #3b5172}
+.slot .label{position:absolute;left:4px;top:-9px;font-size:11px;opacity:.65;user-select:none}
+/* events placed into time slots */
+.slot .evt{ margin:2px 4px; width:auto; }
+/* absolute-positioned duration blocks */
+.timegrid{ position:relative; }
+.timegrid .overlay{ position:absolute; top:0; bottom:0; left:var(--gutter); right:0; z-index:2; pointer-events:none; }
+.timegrid .overlay .evt{ position:absolute; left:2px; right:2px; margin:0; padding-top:4px; }
 /* ---- Footer buttons ----------------------------------------------------- */
 .footer{position:fixed;left:0;right:0;bottom:0;background:#0f1217;border-top:1px solid #1a1d22;padding:8px;display:flex;gap:8px;justify-content:center}
 .footer button{
@@ -145,10 +156,11 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
           </div>
           <div class="date">{{ cell.pretty }}</div>
         </div>
+        <div class="timegrid"><div class="overlay"></div></div>
         {% for e in cell.events %}
           {% if not e.all_day %}
             {% if e.title or e.time_label %}
-              <div class="evt" style="--c:{{e.color}};--sz:{{ e.font_size|default:16 }}px">
+              <div class="evt" data-start="{{ e.time_label|default:'' }}" data-end="{{ e.end_time_label|default:'' }}" style="--c:{{e.color}};--sz:{{ e.font_size|default:16 }}px">
                 {% if e.time_label %}<b>{{ e.time_label }}</b>{% endif %}
                 <span>{{ e.who }}{% if e.title %}: {{ e.title }}{% endif %}</span>
               </div>
@@ -194,6 +206,87 @@ const drawer = document.getElementById('drawer');
 const bodyEl = document.getElementById('drawer-body');
 const cancelBtn = document.getElementById('cancel');
 const saveBtn = document.getElementById('save');
+
+function buildTimeGrid(el){
+  // 24 slots: 7:00, 7:30, …, 18:30 (ending right at 19:00)
+  const startMinutes = 7*60; // 7:00
+  for (let i=0;i<24;i++){
+    const m = startMinutes + i*30;
+    const hh = Math.floor(m/60);
+    const mm = m%60;
+    const isHour = (mm===0);
+    const label = isHour ? ((hh%12||12)+":00"+(hh<12?"a":"p")) : ((hh%12||12)+":30"+(hh<12?"a":"p"));
+    const div = document.createElement('div');
+    div.className = 'slot' + (isHour ? ' hour' : '');
+    if(isHour){
+      const span = document.createElement('span');
+      span.className = 'label';
+      span.textContent = label;
+      div.appendChild(span);
+    }
+    el.appendChild(div);
+  }
+  const ov = el.querySelector('.overlay'); if(ov) el.appendChild(ov);
+}
+
+// Populate all timegrids in the week view
+
+for (const tg of document.querySelectorAll('.timegrid')) buildTimeGrid(tg);
+
+function parseStartMinutes(label){
+  if(!label) return null;
+  // Accept forms like "7:00 AM", "7:30PM", "7a", "7:30p"
+  const s = label.trim().toLowerCase().replace(/\s+/g,'');
+  const m = s.match(/^(\d{1,2})(?::(\d{2}))?([ap])m?$/);
+  if(!m) return null;
+  let h = parseInt(m[1],10);
+  let min = m[2] ? parseInt(m[2],10) : 0;
+  const ap = m[3];
+  h = h % 12 + (ap === 'p' ? 12 : 0);
+  return h*60 + min;
+}
+
+function placeEventsIntoGrid(){
+  const SLOT_PX = 28;           // matches CSS row height
+  const WINDOW_START = 7*60;    // 420 = 7:00
+  const WINDOW_END   = 19*60;   // 1140 = 19:00
+
+  const CELLS = document.querySelectorAll('.cell');
+  for(const cell of CELLS){
+    const grid = cell.querySelector('.timegrid');
+    if(!grid) continue;
+    const overlay = grid.querySelector('.overlay');
+    const evts = [...cell.querySelectorAll('.evt')].filter(e => e.closest('.cell') === cell);
+
+    for(const evt of evts){
+      const startLabel = (evt.getAttribute('data-start') || '').trim();
+      const endLabel   = (evt.getAttribute('data-end') || '').trim();
+      let startMin = parseStartMinutes(startLabel);
+      if(startMin == null) continue;  // skip if we cannot place
+      let endMin = parseStartMinutes(endLabel);
+      if(endMin == null || endMin <= startMin) endMin = startMin + 60; // default 1 hour
+
+      // clamp to visible window
+      if(endMin <= WINDOW_START || startMin >= WINDOW_END) continue; // completely outside
+      startMin = Math.max(startMin, WINDOW_START);
+      endMin   = Math.min(endMin,   WINDOW_END);
+
+      const top = ((startMin - WINDOW_START) / 30) * SLOT_PX;
+      const h   = Math.max(20, ((endMin - startMin) / 30) * SLOT_PX - 4);
+
+      // absolutely position inside overlay
+      evt.style.position = 'absolute';
+      evt.style.top = top + 'px';
+      evt.style.height = h + 'px';
+      evt.style.left = '2px';
+      evt.style.right = '2px';
+
+      overlay.appendChild(evt);
+    }
+  }
+}
+
+placeEventsIntoGrid();
 
 function openDrawer(){
   bodyEl.innerHTML = PEOPLE.map(p => `

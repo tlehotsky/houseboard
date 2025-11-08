@@ -36,9 +36,8 @@ def _month_bounds(year, month):
     return start, end
 
 def _week_bounds(anchor: datetime.date):
-    """Return (start, end) for the week containing anchor; week starts on Sunday."""
-    # Sunday = start; mirror the logic used in _month_bounds
-    start = anchor - datetime.timedelta(days=(anchor.weekday() + 1) % 7)
+    """Return (start, end) for the week containing anchor; week starts on Monday."""
+    start = anchor - datetime.timedelta(days=anchor.weekday())
     end = start + datetime.timedelta(days=6)
     return start, end
 
@@ -278,7 +277,7 @@ def week_view(request):
     start, end = _week_bounds(anchor)
     data = _range_matrix(start, end)
 
-    # Build 7 cells (Sunday..Saturday)
+    # Build 7 cells (Monday..Sunday)
     cells = []
     cur = data["start"]
     for _ in range(7):
