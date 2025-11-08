@@ -192,11 +192,39 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
 </div>
 
 <script>
-function go(y,m){const u=new URL(location);u.searchParams.set('y',y);u.searchParams.set('m',m);location=u.toString();}
-const now=new Date();const y=parseInt(new URL(location).searchParams.get('y')||now.getFullYear());const m=parseInt(new URL(location).searchParams.get('m')||(now.getMonth()+1));
-document.querySelector('[data-act="prev"]').onclick=()=>{const d=new Date(y,m-2,1);go(d.getFullYear(),d.getMonth()+1);};
-document.querySelector('[data-act="next"]').onclick=()=>{const d=new Date(y,m,1);go(d.getFullYear(),d.getMonth()+1);};
-document.querySelector('[data-act="today"]').onclick=()=>{go(now.getFullYear(),now.getMonth()+1);};
+function goDate(y,m,d){
+  const u = new URL(location);
+  u.searchParams.set('y', y);
+  u.searchParams.set('m', m);
+  u.searchParams.set('d', d);
+  location = u.toString();
+}
+
+const now = new Date();
+function getAnchor(){
+  const u = new URL(location);
+  const yy = parseInt(u.searchParams.get('y') || now.getFullYear());
+  const mm = parseInt(u.searchParams.get('m') || (now.getMonth()+1));
+  const dd = parseInt(u.searchParams.get('d') || now.getDate());
+  return new Date(yy, mm-1, dd);
+}
+const anchor = getAnchor();
+
+document.querySelector('[data-act="prev"]').onclick = () => {
+  const d = new Date(anchor);
+  d.setDate(d.getDate() - 7);
+  goDate(d.getFullYear(), d.getMonth()+1, d.getDate());
+};
+
+document.querySelector('[data-act="next"]').onclick = () => {
+  const d = new Date(anchor);
+  d.setDate(d.getDate() + 7);
+  goDate(d.getFullYear(), d.getMonth()+1, d.getDate());
+};
+
+document.querySelector('[data-act="today"]').onclick = () => {
+  goDate(now.getFullYear(), now.getMonth()+1, now.getDate());
+};
 
 // People data for drawer
 const PEOPLE = JSON.parse(document.getElementById('people-data').textContent);
