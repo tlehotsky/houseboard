@@ -39,8 +39,8 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
 .evt{
   color:#e8ecf3;                /* crisp event text */
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  border-left:3px solid var(--c);
-  background:color-mix(in srgb, var(--c) 30%, transparent); /* tint behind every entry */
+  background: var(--c);
+  color:#fff;
   border-radius:6px;
   padding:2px 8px;
   margin:.18rem 0;
@@ -51,23 +51,24 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
 }
 /* all‑day or multi‑day highlight tint for readability on dark ui */
 .all{
-  background:color-mix(in srgb, var(--c) 35%, transparent); /* slightly stronger tint */
-  border-left:3px solid var(--c);
+  background: var(--c);
   border-radius:6px;
   padding:2px 8px;
 }
 /* compact pill tag for all-day entries */
 .tag-all{
-  font-size:12px;
+  font-size:14px;
   padding:0 6px;
   border-radius:999px;
   border:1px solid rgba(255,255,255,.18);
-  background:color-mix(in srgb, var(--c) 20%, transparent);
+  background: var(--c);
+  color:#fff;
   opacity:.9;
 }
 /* subtle de-emphasis for trailing author */
 .who{opacity:.75}
 .evt b{font-weight:700}
+.evt span, .evt b { color:#fff; text-shadow:0 1px 1px rgba(0,0,0,.25); }
 /* ---- Footer buttons ----------------------------------------------------- */
 .footer{position:fixed;left:0;right:0;bottom:0;background:#0f1217;border-top:1px solid #1a1d22;padding:8px;display:flex;gap:8px;justify-content:center}
 .footer button{
