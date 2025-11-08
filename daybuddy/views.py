@@ -35,6 +35,13 @@ def _month_bounds(year, month):
     end = last + datetime.timedelta(days=(6 - last.weekday()) % 7)
     return start, end
 
+def _week_bounds(anchor: datetime.date):
+    """Return (start, end) for the week containing anchor; week starts on Sunday."""
+    # Sunday = start; mirror the logic used in _month_bounds
+    start = anchor - datetime.timedelta(days=(anchor.weekday() + 1) % 7)
+    end = start + datetime.timedelta(days=6)
+    return start, end
+
 
 def _fetch_cal(url: str) -> Calendar:
     r = requests.get(url, timeout=12)
@@ -172,6 +179,37 @@ def _month_matrix(year, month):
     cache.set(key, data, 300)
     return data
 
+def _range_matrix(start: datetime.date, end: datetime.date):
+    key = f"hb:range:{start.isoformat()}:{end.isoformat()}"
+    cached = cache.get(key)
+    if cached:
+        return cached
+
+    all_evts = []
+    for person in (settings.CAL_SOURCES or []):
+        try:
+            cal = _fetch_cal(person["ics_url"])
+            src_events = _expand(cal, start, end, person)
+            print(f"[DayBuddy] Source '{person.get('name')}' -> {len(src_events)} events in range")
+            all_evts += src_events
+        except Exception as e:
+            print(f"[DayBuddy] Fetch error for source '{person.get('name')}': {e}")
+            continue
+
+    days = defaultdict(list)
+    for e in all_evts:
+        days[e["date"]].append(e)
+
+    for d in days:
+        days[d].sort(key=lambda e: (not e["all_day"], e["time_label"] or ""))
+
+    data = dict(
+        start=start,
+        end=end,
+        days={d.isoformat(): days[d] for d in sorted(days)},
+    )
+    cache.set(key, data, 300)
+    return data
 
 def month_view(request):
     today = datetime.date.today()
@@ -213,6 +251,75 @@ def month_view(request):
         {
             "year": y,
             "month": m,
+            "cells": cells,
+            "people": [
+                {
+                    "id": p.get("id"),
+                    "name": p.get("name"),
+                    "color": p.get("color"),
+                    "font_size": int(p.get("font_size", 16) or 16),
+                }
+                for p in (settings.CAL_SOURCES or [])
+            ],
+        },
+    )
+
+def week_view(request):
+    today = datetime.date.today()
+    y = int(request.GET.get("y", today.year))
+    m = int(request.GET.get("m", today.month))
+    d = int(request.GET.get("d", today.day))
+
+    try:
+        anchor = datetime.date(y, m, d)
+    except Exception:
+        anchor = today
+
+    start, end = _week_bounds(anchor)
+    data = _range_matrix(start, end)
+
+    # Build 7 cells (Sunday..Saturday)
+    cells = []
+    cur = data["start"]
+    for _ in range(7):
+        key = cur.isoformat()
+        cells.append({
+            "date_str": key,
+            "pretty": cur.strftime("%a %b %-d"),
+            "events": data["days"].get(key, []),
+        })
+        cur += datetime.timedelta(days=1)
+
+    # Apply latest display name / font size / color mappings
+    srcs = _read_cal_sources()
+    id_to_name = {p.get('id'): p.get('name') for p in srcs}
+    id_to_size = {p.get('id'): int(p.get('font_size', 16) or 16) for p in srcs}
+    id_to_color = {p.get('id'): p.get('color') for p in srcs}
+    for c in cells:
+        for e in c["events"]:
+            pid = e.get("pid")
+            if pid in id_to_name:
+                e["who"] = id_to_name[pid]
+            e["font_size"] = id_to_size.get(pid, 16)
+            if id_to_color.get(pid):
+                e['color'] = id_to_color[pid]
+
+    # Week label like "Nov 3–9, 2025" (handle month/year spans nicely)
+    if start.year == end.year:
+        if start.month == end.month:
+            week_label = f"{start:%b} {start.day}\u2013{end.day}, {start:%Y}"
+        else:
+            week_label = f"{start:%b} {start.day}\u2013{end:%b} {end.day}, {start:%Y}"
+    else:
+        week_label = f"{start:%b} {start.day}, {start:%Y}\u2013{end:%b} {end.day}, {end:%Y}"
+
+    return render(
+        request,
+        "daybuddy/week.html",
+        {
+            "week_label": week_label,
+            "start": start,
+            "end": end,
             "cells": cells,
             "people": [
                 {
