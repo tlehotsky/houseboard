@@ -5,6 +5,19 @@
 body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
 .wrap{padding:16px}
 .legend{display:flex;gap:12px;margin:8px 0 12px;flex-wrap:wrap}
+.pill{
+  display:inline-block;
+  background: var(--c);
+  color:#fff;
+  border:1px solid rgba(255,255,255,.22);
+  border-radius:999px;
+  padding:4px 10px;
+  font-weight:600;
+  line-height:1;
+  text-shadow:0 1px 1px rgba(0,0,0,.35);
+}
+.badge{display:inline-flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;box-shadow:0 0 0 1px rgba(255,255,255,.08), inset 0 0 0 1px rgba(0,0,0,.6)}
 /* color picker input styled like the old swatch */
 .row input.clr{width:22px;height:22px;border-radius:50%;border:1px solid #2a3750;padding:0;background:none;appearance:none;-webkit-appearance:none;cursor:pointer}
 .row input.clr::-webkit-color-swatch-wrapper{padding:0;border-radius:50%}
@@ -90,7 +103,7 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
   {{ people|json_script:"people-data" }}
   <h1>DayBuddy – {{ month }}/{{ year }}</h1>
   <div class="legend">
-    {% for p in people %}<div class="badge"><span class="dot" style="background:{{p.color}}"></span><span>{{p.name}}</span></div>{% endfor %}
+    {% for p in people %}<span class="pill" style="--c:{{p.color}}">{{p.name}}</span>{% endfor %}
   </div>
   <div class="grid">
     {% for cell in cells %}
