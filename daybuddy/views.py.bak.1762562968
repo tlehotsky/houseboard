@@ -2,16 +2,6 @@ import calendar, datetime
 from collections import defaultdict
 
 from django.conf import settings
-import json as _json
-from pathlib import Path as _Path
-CAL_SOURCES_PATH = _Path('/etc/houseboard_cal_sources.json')
-
-def _read_cal_sources():
-    try:
-        return _json.loads(CAL_SOURCES_PATH.read_text())
-    except Exception:
-        return getattr(settings, 'CAL_SOURCES', [])
-
 from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
@@ -194,18 +184,14 @@ def month_view(request):
         cur += datetime.timedelta(days=1)
 
     # Refresh event display names and per-calendar font sizes using current CAL_SOURCES
-    srcs = _read_cal_sources()
-    id_to_name = {p.get('id'): p.get('name') for p in srcs}
-    id_to_size = {p.get('id'): int(p.get('font_size', 16) or 16) for p in srcs}
-    id_to_color = {p.get('id'): p.get('color') for p in srcs}
+    id_to_name = {p.get("id"): p.get("name") for p in (settings.CAL_SOURCES or [])}
+    id_to_size = {p.get("id"): int(p.get("font_size", 16) or 16) for p in (settings.CAL_SOURCES or [])}
     for c in cells:
         for e in c["events"]:
             pid = e.get("pid")
             if pid in id_to_name:
                 e["who"] = id_to_name[pid]
             e["font_size"] = id_to_size.get(pid, 16)
-            if id_to_color.get(pid):
-                e['color'] = id_to_color[pid]
 
     return render(
         request,
@@ -282,25 +268,14 @@ def rename_calendar(request):
     try:
         import json, os
 
-        payload = json.loads(request.body.decode('utf-8'))
-        cid = (payload.get('id') or '').strip()
-        new_name = (payload.get('name') or '').strip()
-        fs_raw = payload.get('font_size', None)
+        payload = json.loads(request.body.decode("utf-8"))
+        cid = (payload.get("id") or "").strip()
+        new_name = (payload.get("name") or "").strip()
+        fs_raw = payload.get("font_size", None)
         try:
             new_size = int(fs_raw) if fs_raw is not None else None
         except Exception:
             new_size = None
-        new_color = (payload.get('color') or '').strip()
-        import re as _re
-        if new_color:
-            m = _re.fullmatch(r'#?([0-9a-fA-F]{6}|[0-9a-fA-F]{3})', new_color)
-            if m:
-                h = m.group(1)
-                if len(h) == 3:
-                    h = ''.join(ch*2 for ch in h)
-                new_color = '#' + h.lower()
-            else:
-                new_color = ''
 
         if not cid or not new_name:
             return JsonResponse({"error": "id and name required"}, status=400)
@@ -318,8 +293,6 @@ def rename_calendar(request):
                 item["name"] = new_name
                 if new_size:
                     item["font_size"] = new_size
-                if new_color:
-                    item["color"] = new_color
                 found = True
                 break
         if not found:
@@ -335,6 +308,6 @@ def rename_calendar(request):
         except Exception:
             pass
 
-        return JsonResponse({"ok": True, "id": cid, "name": new_name, "font_size": new_size, "color": new_color or None})
+        return JsonResponse({"ok": True, "id": cid, "name": new_name, "font_size": new_size})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
