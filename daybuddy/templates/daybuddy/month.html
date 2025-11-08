@@ -17,6 +17,9 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
   padding:8px;
 }
 .date{opacity:.75;font-weight:700;text-align:right;font-size:20px}
+/* header row inside a day cell: all-day pills left, date right */
+.cell-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+.allbar{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
 /* ---- Events ------------------------------------------------------------- */
 .evt{
   color:#e8ecf3;                /* crisp event text */
@@ -27,6 +30,9 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
   padding:2px 8px;
   margin:.18rem 0;
   font-size: var(--sz, 16px);
+  display:flex;                 /* allow inline badges */
+  align-items:center;
+  gap:6px;
 }
 /* all‑day or multi‑day highlight tint for readability on dark ui */
 .all{
@@ -35,6 +41,17 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
   border-radius:6px;
   padding:2px 8px;
 }
+/* compact pill tag for all-day entries */
+.tag-all{
+  font-size:12px;
+  padding:0 6px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.18);
+  background:color-mix(in srgb, var(--c) 20%, transparent);
+  opacity:.9;
+}
+/* subtle de-emphasis for trailing author */
+.who{opacity:.75}
 .evt b{font-weight:700}
 /* ---- Footer buttons ----------------------------------------------------- */
 .footer{position:fixed;left:0;right:0;bottom:0;background:#0f1217;border-top:1px solid #1a1d22;padding:8px;display:flex;gap:8px;justify-content:center}
@@ -77,16 +94,27 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
   <div class="grid">
     {% for cell in cells %}
       <div class="cell">
-        <div class="date">{{ cell.pretty }}</div>
+        <div class="cell-head">
+          <div class="allbar">
+            {% for e in cell.events %}
+              {% if e.all_day %}
+                {% if e.title or e.time_label %}
+                  <span class="tag-all" style="--c:{{ e.color }}">{{ e.title|default:"ALL DAY" }}</span>
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+          </div>
+          <div class="date">{{ cell.pretty }}</div>
+        </div>
         {% for e in cell.events %}
-          {% if e.title or e.time_label %}
-            <div class="evt {% if e.all_day %}all{% endif %}" style="--c:{{e.color}};--sz:{{ e.font_size|default:16 }}px">
-              {% if e.time_label %}<b>{{ e.time_label }}</b> {% endif %}
-              <span>{{ e.who }}{% if e.title %}: {{ e.title }}{% endif %}</span>
-            </div>
+          {% if not e.all_day %}
+            {% if e.title or e.time_label %}
+              <div class="evt" style="--c:{{e.color}};--sz:{{ e.font_size|default:16 }}px">
+                {% if e.time_label %}<b>{{ e.time_label }}</b>{% endif %}
+                <span>{{ e.who }}{% if e.title %}: {{ e.title }}{% endif %}</span>
+              </div>
+            {% endif %}
           {% endif %}
-        {% empty %}
-          <div style="opacity:.45">—</div>
         {% endfor %}
       </div>
     {% endfor %}
