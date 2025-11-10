@@ -458,6 +458,69 @@ saveBtn.addEventListener('click', async () => {
     // clear
     while(svg.firstChild) svg.removeChild(svg.firstChild);
 
+    // day bands & labels (start/end of each day)
+    const dayGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+    // dayGroup opacity removed so labels render full-white
+
+    // Find indices where a new day starts
+    const dayBreakIdx = [0];
+    for(let i=1;i<takeN;i++){
+      const dPrev = new Date(hours[i-1]);
+      const dCurr = new Date(hours[i]);
+      if(dPrev.getDate() !== dCurr.getDate() || dPrev.getMonth() !== dCurr.getMonth()){
+        dayBreakIdx.push(i);
+      }
+    }
+    // ensure we close the last segment
+    if(dayBreakIdx[dayBreakIdx.length-1] !== takeN-1){
+      dayBreakIdx.push(takeN-1);
+    }
+
+    for(let k=0;k<dayBreakIdx.length-1;k++){
+      const s = dayBreakIdx[k];
+      const e = dayBreakIdx[k+1];
+      const x1 = 10 + s*xStep;
+      const x2 = 10 + e*xStep;
+      const w  = Math.max(1, x2 - x1);
+
+      // alternating subtle background band
+      const band = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      band.setAttribute('x', x1);
+      band.setAttribute('y', 8);
+      band.setAttribute('width', w);
+      band.setAttribute('height', H-30);
+      band.setAttribute('fill', (k % 2 === 0) ? '#ffffff' : '#7aa4d3');
+      band.setAttribute('opacity', (k % 2 === 0) ? '0.08' : '0.06');
+      dayGroup.appendChild(band);
+
+      // day boundary line at start
+      const dl = document.createElementNS('http://www.w3.org/2000/svg','line');
+      dl.setAttribute('x1', x1);
+      dl.setAttribute('y1', 8);
+      dl.setAttribute('x2', x1);
+      dl.setAttribute('y2', H-22);
+      dl.setAttribute('stroke', '#a8b6d2');
+      dl.setAttribute('stroke-width', '1');
+      dl.setAttribute('opacity', '0.55');
+      dayGroup.appendChild(dl);
+
+      // day label (e.g., Mon 11/09) centered in band
+      const labelDate = new Date(hours[s]);
+      const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][labelDate.getDay()];
+      const mon = labelDate.getMonth()+1;
+      const day = labelDate.getDate();
+      const cx = x1 + w/2;
+      const tLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
+      tLabel.setAttribute('x', cx);
+      tLabel.setAttribute('y', tempTop + 12);
+      tLabel.setAttribute('text-anchor', 'middle');
+      tLabel.setAttribute('fill', '#ffffff');
+      tLabel.setAttribute('font-size', '12');
+      tLabel.textContent = `${dow} ${mon}/${day}`;
+      dayGroup.appendChild(tLabel);
+    }
+    svg.appendChild(dayGroup);
+
     // grid lines each 12 hours
     const grid = document.createElementNS('http://www.w3.org/2000/svg','g');
     grid.setAttribute('opacity','0.2');
@@ -468,25 +531,106 @@ saveBtn.addEventListener('click', async () => {
         const line = document.createElementNS('http://www.w3.org/2000/svg','line');
         line.setAttribute('x1',x); line.setAttribute('y1',8);
         line.setAttribute('x2',x); line.setAttribute('y2',H-22);
-        line.setAttribute('stroke','#5d6b84'); line.setAttribute('stroke-width','1'); line.setAttribute('stroke-dasharray','3,3');
+        line.setAttribute('stroke','#9fb3d1'); line.setAttribute('stroke-width','1'); line.setAttribute('stroke-dasharray','3,3');
         grid.appendChild(line);
       }
     }
     svg.appendChild(grid);
 
-    // precip bars (background)
-    const barGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
-    for(const b of bars){
-      const r = document.createElementNS('http://www.w3.org/2000/svg','rect');
-      r.setAttribute('x', b.x- (xStep*0.35));
-      r.setAttribute('width', xStep*0.7);
-      r.setAttribute('y', b.y);
-      r.setAttribute('height', b.h);
-      r.setAttribute('fill', '#3a6fb7');
-      r.setAttribute('opacity', '0.45');
-      barGroup.appendChild(r);
+    // precip y-axis markers at 25/50/75/100%
+    const yAxis = document.createElementNS('http://www.w3.org/2000/svg','g');
+    const pctMarks = [25,50,75,100];
+    for(const pct of pctMarks){
+      const y = barBottom - (pct/100)*barMaxH;
+      // tick line across precip band
+      const tick = document.createElementNS('http://www.w3.org/2000/svg','line');
+      tick.setAttribute('x1', 10);
+      tick.setAttribute('y1', y);
+      tick.setAttribute('x2', W-10);
+      tick.setAttribute('y2', y);
+      tick.setAttribute('stroke', '#a8b6d2');
+      tick.setAttribute('stroke-width', '1');
+      tick.setAttribute('stroke-dasharray', '2,4');
+      tick.setAttribute('opacity', '0.55');
+      yAxis.appendChild(tick);
+
+      // right-side label
+      const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+      lbl.setAttribute('x', W-8);
+      lbl.setAttribute('y', y-2);
+      lbl.setAttribute('text-anchor', 'end');
+      lbl.setAttribute('fill', '#e6efff');
+      lbl.setAttribute('font-size', '12');
+      lbl.textContent = pct + '%';
+      yAxis.appendChild(lbl);
     }
-    svg.appendChild(barGroup);
+    svg.appendChild(yAxis);
+
+    // temperature y-axis markers at 25/50/75/100 °F (only if within range)
+    const tAxis = document.createElementNS('http://www.w3.org/2000/svg','g');
+    const tMarks = [25,50,75,100];
+    for(const val of tMarks){
+      if(!(val >= tmin && val <= tmax)) continue; // skip values outside current plotted temp range
+      const yT = (1 - (val - tmin)/(tmax - tmin)) * (tempBottom - tempTop) + tempTop;
+      // tick line across the temperature band
+      const tLine = document.createElementNS('http://www.w3.org/2000/svg','line');
+      tLine.setAttribute('x1', 10);
+      tLine.setAttribute('y1', yT);
+      tLine.setAttribute('x2', W-10);
+      tLine.setAttribute('y2', yT);
+      tLine.setAttribute('stroke', '#a8b6d2');
+      tLine.setAttribute('stroke-width', '1');
+      tLine.setAttribute('stroke-dasharray', '2,4');
+      tLine.setAttribute('opacity', '0.55');
+      tAxis.appendChild(tLine);
+
+      // left-side label (avoid overlap with precip labels on the right)
+      const tLbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+      tLbl.setAttribute('x', 12);
+      tLbl.setAttribute('y', yT-2);
+      tLbl.setAttribute('text-anchor', 'start');
+      tLbl.setAttribute('fill', '#f0f6ff');
+      tLbl.setAttribute('font-size', '12');
+      tLbl.textContent = `${val}°F`;
+      tAxis.appendChild(tLbl);
+    }
+    svg.appendChild(tAxis);
+
+    // precip area (filled, continuous)
+    const areaPts = [];
+    // start at left baseline
+    areaPts.push(`10,${barBottom}`);
+    for(let i=0;i<takeN;i++){
+      const x = 10 + i*xStep;
+      const p = (typeof pops[i] === 'number') ? pops[i] : 0;
+      const bh = Math.max(0, Math.min(barMaxH, (p/100)*barMaxH));
+      const y = barBottom - bh;
+      areaPts.push(`${x},${y}`);
+    }
+    // end at right baseline
+    areaPts.push(`${10 + (takeN-1)*xStep},${barBottom}`);
+
+    const area = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    area.setAttribute('points', areaPts.join(' '));
+    area.setAttribute('fill', '#00a8ff');
+    area.setAttribute('opacity', '0.6');
+    svg.appendChild(area);
+
+    // optional precip outline for clarity
+    const precipLinePts = [];
+    for(let i=0;i<takeN;i++){
+      const x = 10 + i*xStep;
+      const p = (typeof pops[i] === 'number') ? pops[i] : 0;
+      const bh = Math.max(0, Math.min(barMaxH, (p/100)*barMaxH));
+      const y = barBottom - bh;
+      precipLinePts.push(`${x},${y}`);
+    }
+    const precipLine = document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    precipLine.setAttribute('fill','none');
+    precipLine.setAttribute('stroke','#008ce0');
+    precipLine.setAttribute('stroke-width','2');
+    precipLine.setAttribute('points', precipLinePts.join(' '));
+    svg.appendChild(precipLine);
 
     // temp line
     const poly = document.createElementNS('http://www.w3.org/2000/svg','polyline');
