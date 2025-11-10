@@ -3,6 +3,16 @@
 <style>
 /* ---- Base --------------------------------------------------------------- */
 body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
+/* Inset border around the entire viewport */
+body::after{
+  content:"";
+  position:fixed;
+  inset:8px;                 /* distance from the screen edge */
+  border:1px solid rgba(255,255,255,.6); /* thin white border */
+  border-radius:10px;        /* slight rounding; adjust if you prefer square corners */
+  pointer-events:none;       /* don't block clicks */
+  z-index:9999;              /* render above all content */
+}
 .wrap{padding:16px}
 .legend{
   display:flex;
@@ -36,7 +46,12 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
 .row input.clr::-webkit-color-swatch-wrapper{padding:0;border-radius:50%}
 .row input.clr::-webkit-color-swatch{border:none;border-radius:50%}
 /* ---- Grid --------------------------------------------------------------- */
-.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:6px;
+  margin:0 20px; /* adds whitespace on both sides */
+}
 .cell{
   min-height:120px;
   background:#1b1f29;           /* slightly lighter than before for better contrast */
@@ -136,7 +151,7 @@ body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
 
 <div class="wrap">
   {{ people|json_script:"people-data" }}
-  <h1>DayBuddy – Week {{ month }}/{{ year }}</h1>
+  <h1>DayBuddy – Week View</h1>
   <h3 style="text-align:center;opacity:.8;margin-top:12px;margin-bottom:4px;font-weight:600;">Week Legend</h3>
   <div class="legend">
     {% for p in people %}<span class="pill" style="--c:{{p.color}}">{{p.name}}</span>{% endfor %}
