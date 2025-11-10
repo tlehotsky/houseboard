@@ -52,6 +52,13 @@ body::after{
   gap:6px;
   margin:0 20px; /* adds whitespace on both sides */
 }
+/* ---- Weather cards ----------------------------------------------------- */
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 20px 90px}
+.card{background:#1b1f29;border:1px solid #333;border-radius:10px;padding:12px;min-width:0}
+.card h4{margin:0 0 8px 0;font-weight:700;opacity:.9}
+.card .big{font-size:44px;font-weight:800;letter-spacing:0.5px}
+.card .muted{opacity:.75;font-size:14px}
+#wxChart{width:100%;height:220px;display:block}
 .cell{
   min-height:120px;
   background:#1b1f29;           /* slightly lighter than before for better contrast */
@@ -184,6 +191,18 @@ body::after{
         {% endfor %}
       </div>
     {% endfor %}
+  </div>
+  <div class="cards" id="weather-cards">
+    <div class="card" id="card-now">
+      <h4>Red Bank, NJ (07701) — Now</h4>
+      <div class="big" id="now-temp">—</div>
+      <div class="muted" id="now-updated">Loading current conditions…</div>
+    </div>
+    <div class="card" id="card-forecast">
+      <h4>Temperature & Rain Chance (next 3 days)</h4>
+      <svg id="wxChart" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
+      <div class="muted" id="wxNote">Line = °F, Bars = % chance of precipitation</div>
+    </div>
   </div>
 </div>
 
@@ -369,4 +388,124 @@ saveBtn.addEventListener('click', async () => {
   }
   location.reload();
 });
+
+// ---- Weather: 07701 (Red Bank, NJ) --------------------------------------
+(async function loadWeather(){
+  try{
+    const LAT = 40.35, LON = -74.07; // Red Bank approx
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=temperature_2m,precipitation_probability&current=temperature_2m&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=10`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('Weather fetch failed');
+    const data = await res.json();
+
+    // 1) Current temperature card
+    const nowEl = document.getElementById('now-temp');
+    if(data.current && typeof data.current.temperature_2m === 'number'){
+      nowEl.textContent = Math.round(data.current.temperature_2m) + '°F';
+    } else {
+      nowEl.textContent = '—';
+    }
+    const upd = document.getElementById('now-updated');
+    upd.textContent = 'Updated just now';
+
+    // 2) Forecast chart (next 72 hours)
+    const hours = data.hourly?.time || [];
+    const temps = data.hourly?.temperature_2m || [];
+    const pops  = data.hourly?.precipitation_probability || [];
+    const takeN = Math.min(hours.length, 72); // next 3 days
+
+    const pts = [];
+    const bars = [];
+    let tmin = Infinity, tmax = -Infinity;
+    for(let i=0;i<takeN;i++){
+      const t = temps[i];
+      if(typeof t === 'number'){
+        tmin = Math.min(tmin, t); tmax = Math.max(tmax, t);
+      }
+    }
+    if(!isFinite(tmin) || !isFinite(tmax)) { tmin = 30; tmax = 90; }
+    // pad range a little
+    const pad = 2; tmin -= pad; tmax += pad;
+
+    // SVG size (viewBox 0..1000 x 0..220)
+    const W=1000, H=220;
+    const tempTop = 10, tempBottom = 130; // top region for temp line
+    const barBottom = H-20, barMaxH = 70; // lower region for precip bars
+
+    const xStep = (W-20) / Math.max(1, takeN-1);
+    for(let i=0;i<takeN;i++){
+      const x = 10 + i*xStep;
+      const t = temps[i];
+      const p = (typeof pops[i] === 'number') ? pops[i] : 0;
+      // map temp to y
+      const y = (1 - (t - tmin)/(tmax - tmin)) * (tempBottom - tempTop) + tempTop;
+      pts.push(`${x},${y}`);
+      // precip bar
+      const bh = Math.max(0, Math.min(barMaxH, (p/100)*barMaxH));
+      bars.push({x, y: barBottom - bh, h: bh});
+    }
+
+    const svg = document.getElementById('wxChart');
+    // clear
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+
+    // grid lines each 12 hours
+    const grid = document.createElementNS('http://www.w3.org/2000/svg','g');
+    grid.setAttribute('opacity','0.2');
+    for(let i=0;i<takeN;i++){
+      const dt = new Date(hours[i]);
+      if(dt.getHours()===0 || dt.getHours()===12){
+        const x = 10 + i*xStep;
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1',x); line.setAttribute('y1',8);
+        line.setAttribute('x2',x); line.setAttribute('y2',H-22);
+        line.setAttribute('stroke','#5d6b84'); line.setAttribute('stroke-width','1'); line.setAttribute('stroke-dasharray','3,3');
+        grid.appendChild(line);
+      }
+    }
+    svg.appendChild(grid);
+
+    // precip bars (background)
+    const barGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+    for(const b of bars){
+      const r = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      r.setAttribute('x', b.x- (xStep*0.35));
+      r.setAttribute('width', xStep*0.7);
+      r.setAttribute('y', b.y);
+      r.setAttribute('height', b.h);
+      r.setAttribute('fill', '#3a6fb7');
+      r.setAttribute('opacity', '0.45');
+      barGroup.appendChild(r);
+    }
+    svg.appendChild(barGroup);
+
+    // temp line
+    const poly = document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    poly.setAttribute('fill','none');
+    poly.setAttribute('stroke','#ffd27d');
+    poly.setAttribute('stroke-width','2');
+    poly.setAttribute('points', pts.join(' '));
+    svg.appendChild(poly);
+
+    // min/max labels
+    const lblMin = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lblMin.setAttribute('x','8'); lblMin.setAttribute('y',tempBottom+12);
+    lblMin.setAttribute('fill','#9fb3d1'); lblMin.setAttribute('font-size','12');
+    lblMin.textContent = `${Math.round(tmin)}°F`;
+    svg.appendChild(lblMin);
+
+    const lblMax = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lblMax.setAttribute('x','8'); lblMax.setAttribute('y',tempTop+12);
+    lblMax.setAttribute('fill','#9fb3d1'); lblMax.setAttribute('font-size','12');
+    lblMax.textContent = `${Math.round(tmax)}°F`;
+    svg.appendChild(lblMax);
+
+  }catch(err){
+    console.error(err);
+    const nowEl = document.getElementById('now-temp');
+    if(nowEl) nowEl.textContent = 'N/A';
+    const upd = document.getElementById('now-updated');
+    if(upd) upd.textContent = 'Unable to load weather.';
+  }
+})();
 </script>
