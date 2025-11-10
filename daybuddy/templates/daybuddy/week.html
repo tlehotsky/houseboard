@@ -53,10 +53,19 @@ body::after{
   margin:0 20px; /* adds whitespace on both sides */
 }
 /* ---- Weather cards ----------------------------------------------------- */
-.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 20px 90px}
+.cards{
+  display:grid;
+  grid-template-columns:minmax(200px,20%) minmax(0,80%);
+  gap:12px;
+  margin:16px 20px 90px;
+}
+@media (max-width: 980px){
+  .cards{ grid-template-columns: 1fr; }
+}
 .card{background:#1b1f29;border:1px solid #333;border-radius:10px;padding:12px;min-width:0}
 .card h4{margin:0 0 8px 0;font-weight:700;opacity:.9}
-.card .big{font-size:44px;font-weight:800;letter-spacing:0.5px}
+.card .big{font-size:176px;font-weight:800;letter-spacing:0.5px}
+.card .big .unit{ font-size:0.5em; margin-left:6px; opacity:.9; }
 .card .muted{opacity:.75;font-size:14px}
 #wxChart{width:100%;height:220px;display:block}
 .cell{
@@ -199,8 +208,8 @@ body::after{
       <div class="muted" id="now-updated">Loading current conditions…</div>
     </div>
     <div class="card" id="card-forecast">
-      <h4>Temperature & Rain Chance (next 3 days)</h4>
-      <svg id="wxChart" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
+      <h4>Temperature & Rain Chance (next 7 days)</h4>
+      <svg id="wxChart" viewBox="0 0 1400 220" preserveAspectRatio="none"></svg>
       <div class="muted" id="wxNote">Line = °F, Bars = % chance of precipitation</div>
     </div>
   </div>
@@ -401,7 +410,7 @@ saveBtn.addEventListener('click', async () => {
     // 1) Current temperature card
     const nowEl = document.getElementById('now-temp');
     if(data.current && typeof data.current.temperature_2m === 'number'){
-      nowEl.textContent = Math.round(data.current.temperature_2m) + '°F';
+      nowEl.innerHTML = Math.round(data.current.temperature_2m) + '<span class="unit">°F</span>';
     } else {
       nowEl.textContent = '—';
     }
@@ -412,7 +421,7 @@ saveBtn.addEventListener('click', async () => {
     const hours = data.hourly?.time || [];
     const temps = data.hourly?.temperature_2m || [];
     const pops  = data.hourly?.precipitation_probability || [];
-    const takeN = Math.min(hours.length, 72); // next 3 days
+    const takeN = Math.min(hours.length, 168); // next 7 days
 
     const pts = [];
     const bars = [];
@@ -427,8 +436,8 @@ saveBtn.addEventListener('click', async () => {
     // pad range a little
     const pad = 2; tmin -= pad; tmax += pad;
 
-    // SVG size (viewBox 0..1000 x 0..220)
-    const W=1000, H=220;
+    // SVG size (viewBox 0..1400 x 0..220)
+    const W=1400, H=220;
     const tempTop = 10, tempBottom = 130; // top region for temp line
     const barBottom = H-20, barMaxH = 70; // lower region for precip bars
 
