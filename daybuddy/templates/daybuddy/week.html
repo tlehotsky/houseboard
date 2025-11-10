@@ -402,7 +402,7 @@ saveBtn.addEventListener('click', async () => {
 (async function loadWeather(){
   try{
     const LAT = 40.35, LON = -74.07; // Red Bank approx
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=temperature_2m,precipitation_probability&current=temperature_2m&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=10`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=temperature_2m,precipitation_probability&daily=sunrise,sunset&current=temperature_2m&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=10`;
     const res = await fetch(url);
     if(!res.ok) throw new Error('Weather fetch failed');
     const data = await res.json();
@@ -521,6 +521,53 @@ saveBtn.addEventListener('click', async () => {
     }
     svg.appendChild(dayGroup);
 
+    // night bands: from daily sunset to next day's sunrise
+    if (data.daily && Array.isArray(data.daily.sunset) && Array.isArray(data.daily.sunrise)){
+      const nightGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+      nightGroup.setAttribute('opacity','0.40');
+      nightGroup.setAttribute('stroke','none');
+      const X_MIN = 10, X_MAX = 10 + (takeN-1)*xStep;
+      const yTop = 8, yBot = H-22;
+
+      const findX = (dt) => {
+        // find first hourly index >= dt
+        for(let i=0;i<takeN;i++){
+          const hi = new Date(hours[i]).getTime();
+          if (hi >= dt.getTime()){
+            const x = X_MIN + i*xStep;
+            return Math.min(X_MAX, Math.max(X_MIN, x));
+          }
+        }
+        return null;
+      };
+
+      const sunr = data.daily.sunrise;
+      const suns = data.daily.sunset;
+      const daysN = Math.min(sunr.length, suns.length);
+
+      for(let k=0;k<daysN;k++){
+        const sunset = new Date(suns[k]);
+        const nextSunrise = (k+1 < sunr.length) ? new Date(sunr[k+1]) : null;
+        if(!nextSunrise) continue;
+        let x1 = findX(sunset);
+        let x2 = findX(nextSunrise);
+        // if next sunrise is beyond plotted range but we have sunset inside, fill to end
+        if (x1==null && x2==null) continue; // both out of range
+        if (x1==null && x2!=null) x1 = X_MIN; // started before range
+        if (x1!=null && x2==null) x2 = X_MAX; // ends after range
+        if (x1!=null && x2!=null && x2 > x1){
+          const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+          rect.setAttribute('x', x1);
+          rect.setAttribute('y', yTop);
+          rect.setAttribute('width', x2 - x1);
+          rect.setAttribute('height', yBot - yTop);
+          rect.setAttribute('fill', '#4e7ad9'); // lighter night tint for contrast
+          nightGroup.appendChild(rect);
+        }
+      }
+      svg.appendChild(nightGroup);
+    }
+
     // grid lines each 12 hours
     const grid = document.createElementNS('http://www.w3.org/2000/svg','g');
     grid.setAttribute('opacity','0.2');
@@ -536,6 +583,35 @@ saveBtn.addEventListener('click', async () => {
       }
     }
     svg.appendChild(grid);
+    // bottom axis ticks and labels for 12am / 12pm
+    const bottomAxis = document.createElementNS('http://www.w3.org/2000/svg','g');
+    const yBottomAxis = H - 22; // chart bottom line
+    for(let i=0;i<takeN;i++){
+      const dt = new Date(hours[i]);
+      const hr = dt.getHours();
+      if(hr === 0 || hr === 12){
+        const x = 10 + i*xStep;
+        // tick mark
+        const tick = document.createElementNS('http://www.w3.org/2000/svg','line');
+        tick.setAttribute('x1', x);
+        tick.setAttribute('y1', yBottomAxis);
+        tick.setAttribute('x2', x);
+        tick.setAttribute('y2', yBottomAxis - 6);
+        tick.setAttribute('stroke', '#e6efff');
+        tick.setAttribute('stroke-width', '1');
+        bottomAxis.appendChild(tick);
+        // label
+        const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+        lbl.setAttribute('x', x);
+        lbl.setAttribute('y', H - 6);
+        lbl.setAttribute('text-anchor', 'middle');
+        lbl.setAttribute('fill', '#ffffff');
+        lbl.setAttribute('font-size', '10');
+        lbl.textContent = (hr === 0) ? '12am' : '12pm';
+        bottomAxis.appendChild(lbl);
+      }
+    }
+    svg.appendChild(bottomAxis);
 
     // precip y-axis markers at 25/50/75/100%
     const yAxis = document.createElementNS('http://www.w3.org/2000/svg','g');
