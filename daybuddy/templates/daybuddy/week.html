@@ -69,6 +69,12 @@ body::after{
 .card .big .unit{ font-size:0.5em; margin-left:6px; opacity:.9; }
 .card .muted{opacity:.75;font-size:14px;margin-top:4px}
 #wxChart{width:100%;height:220px;display:block}
+/* Weather legend */
+#card-forecast #wxNote{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.wx-key{display:inline-flex;align-items:center;gap:8px}
+.wx-key .sw{display:inline-block;width:20px;height:0;border-top:3px solid currentColor}
+.wx-key .temp{color:#ffd27d}
+.wx-key .precip{color:#008ce0}
 .cell{
   min-height:120px;
   background:#1b1f29;           /* slightly lighter than before for better contrast */
@@ -211,7 +217,10 @@ body::after{
     <div class="card" id="card-forecast">
       <h4>Temperature & Rain Chance (next 7 days)</h4>
       <svg id="wxChart" viewBox="0 0 1400 220" preserveAspectRatio="none"></svg>
-      <div class="muted" id="wxNote">Line = °F, Bars = % chance of precipitation</div>
+      <div class="muted" id="wxNote">
+        <span class="wx-key"><span class="sw temp"></span> Temperature (°F)</span>
+        <span class="wx-key"><span class="sw precip"></span> Chance of Precip (%)</span>
+      </div>
     </div>
   </div>
 </div>
@@ -498,8 +507,8 @@ saveBtn.addEventListener('click', async () => {
       band.setAttribute('y', 8);
       band.setAttribute('width', w);
       band.setAttribute('height', H-30);
-      band.setAttribute('fill', (k % 2 === 0) ? '#ffffff' : '#7aa4d3');
-      band.setAttribute('opacity', (k % 2 === 0) ? '0.08' : '0.06');
+      band.setAttribute('fill', (k % 2 === 0) ? '#4e7ad9' : '#4e7ad9');
+      band.setAttribute('opacity', (k % 2 === 0) ? '0.40' : '0.40');
       dayGroup.appendChild(band);
 
       // day boundary line at start
@@ -533,7 +542,7 @@ saveBtn.addEventListener('click', async () => {
     // night bands: from daily sunset to next day's sunrise
     if (data.daily && Array.isArray(data.daily.sunset) && Array.isArray(data.daily.sunrise)){
       const nightGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
-      nightGroup.setAttribute('opacity','0.40');
+      nightGroup.setAttribute('opacity','0.08');
       nightGroup.setAttribute('stroke','none');
       const X_MIN = 10, X_MAX = 10 + (takeN-1)*xStep;
       const yTop = 8, yBot = H-22;
@@ -570,7 +579,7 @@ saveBtn.addEventListener('click', async () => {
           rect.setAttribute('y', yTop);
           rect.setAttribute('width', x2 - x1);
           rect.setAttribute('height', yBot - yTop);
-          rect.setAttribute('fill', '#4e7ad9'); // lighter night tint for contrast
+          rect.setAttribute('fill', '#ffffff'); // light night tint after flip
           nightGroup.appendChild(rect);
         }
       }
