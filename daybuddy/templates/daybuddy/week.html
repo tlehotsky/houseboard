@@ -75,6 +75,9 @@ body::after{
 .wx-key .sw{display:inline-block;width:20px;height:0;border-top:3px solid currentColor}
 .wx-key .temp{color:#ffd27d}
 .wx-key .precip{color:#008ce0}
+/* Slideshow tweaks */
+#card-slideshow img{border-radius:8px;display:block;width:100%;height:auto}
+#card-slideshow .muted{margin-top:6px}
 .cell{
   min-height:120px;
   background:#1b1f29;           /* slightly lighter than before for better contrast */
@@ -221,6 +224,13 @@ body::after{
         <span class="wx-key"><span class="sw temp"></span> Temperature (°F)</span>
         <span class="wx-key"><span class="sw precip"></span> Chance of Precip (%)</span>
       </div>
+    </div>
+    <div class="card" id="card-slideshow">
+      <h4>Family Photos</h4>
+      <div style="position:relative;overflow:hidden;border-radius:8px;">
+        <img id="slide-img" alt="slideshow" style="width:100%;height:auto;display:block;opacity:.0;transition:opacity .5s ease;">
+      </div>
+      <div class="muted" id="slide-meta"></div>
     </div>
   </div>
 </div>
@@ -752,5 +762,47 @@ saveBtn.addEventListener('click', async () => {
     const nowEl = document.getElementById('now-temp');
     if(nowEl) nowEl.textContent = 'N/A';
   }
+})();
+// --- Simple slideshow ---
+(function(){
+  const IMG = document.getElementById('slide-img');
+  const META = document.getElementById('slide-meta');
+  if(!IMG) return; // card not present
+
+  let timer = null;
+  async function loadOne() {
+    try{
+      const res = await fetch('/houseboard/daybuddy/photos/random', {cache:'no-store'});
+      if(!res.ok) throw new Error('random fetch failed');
+      const j = await res.json();
+      if(!j || !j.url){ META.textContent = 'No photos available'; return; }
+      const url = j.url + '?v=' + Date.now(); // cache-bust
+      // fade out, swap, fade in
+      IMG.style.opacity = 0;
+      const preload = new Image();
+      preload.onload = () => {
+        IMG.src = url;
+        IMG.onload = () => { IMG.style.opacity = 1; };
+      };
+      preload.src = url;
+      META.textContent = j.taken_at ? `Taken ${j.taken_at}` : '';
+    }catch(e){
+      console.error(e);
+      if(META) META.textContent = 'No photos available';
+    }
+  }
+
+  function start(){
+    loadOne();
+    timer = setInterval(loadOne, 20000); // 20s cadence
+  }
+
+  // Pause/resume on click
+  IMG.addEventListener('click', () => {
+    if(timer){ clearInterval(timer); timer = null; META.textContent += ' • paused'; }
+    else { META.textContent = META.textContent.replace(' • paused',''); start(); }
+  });
+
+  start();
 })();
 </script>

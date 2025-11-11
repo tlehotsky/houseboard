@@ -21,6 +21,20 @@ import requests
 from icalendar import Calendar
 from dateutil.rrule import rrulestr
 
+import os, sqlite3, mimetypes
+from pathlib import Path
+from collections import deque
+from django.http import JsonResponse, FileResponse, Http404
+from django.views.decorators.http import require_GET
+
+
+PHOTOS_ROOT = Path("/srv/daybuddy/photos")
+READY_ROOT  = PHOTOS_ROOT / "ready"
+DB_PATH     = PHOTOS_ROOT / "index.sqlite3"
+
+# Keep a small ring buffer of recently shown ids to reduce repeats
+RECENT_IDS = deque(maxlen=200)
+
 
 def healthz(_request):
     return HttpResponse("ok")
@@ -444,3 +458,77 @@ def rename_calendar(request):
         return JsonResponse({"ok": True, "id": cid, "name": new_name, "font_size": new_size, "color": new_color or None})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+
+
+@require_GET
+def photo_random(request):
+    """Return a random photo from the index as JSON: {id, url, width, height, taken_at}."""
+    if not DB_PATH.exists():
+        return JsonResponse({"error": "index not ready"}, status=503)
+
+    try:
+        con = sqlite3.connect(DB_PATH)
+        cur = con.cursor()
+
+        # Count how many photos exist in total
+        total = cur.execute("SELECT COUNT(*) FROM photos").fetchone()[0]
+
+        row = None
+        if total > 0:
+            if RECENT_IDS:
+                recent = list(RECENT_IDS)
+                # Only exclude RECENT_IDS if that still leaves something to choose
+                if len(recent) < total:
+                    placeholders = ",".join("?" for _ in recent)
+                    q = f"""
+                        SELECT id, relpath, width, height, taken_at
+                        FROM photos
+                        WHERE id NOT IN ({placeholders})
+                        ORDER BY RANDOM()
+                        LIMIT 1
+                    """
+                    row = cur.execute(q, recent).fetchone()
+            # Fallback: allow repeats when everything is in the recent buffer
+            if row is None:
+                row = cur.execute(
+                    """
+                    SELECT id, relpath, width, height, taken_at
+                    FROM photos
+                    ORDER BY RANDOM()
+                    LIMIT 1
+                    """
+                ).fetchone()
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
+    if not row:
+        return JsonResponse({"error": "no photos"}, status=404)
+
+    pid, relpath, w, h, taken_at = row
+    # Normalize/sanitize relpath coming from DB just in case
+    relpath = os.path.normpath(relpath).replace("\\", "/")
+    url = f"/houseboard/daybuddy/photos/file/{relpath}"
+    RECENT_IDS.append(pid)
+
+    return JsonResponse({"id": pid, "url": url, "width": w, "height": h, "taken_at": taken_at})
+
+
+@require_GET
+def photo_file(request, relpath):
+    """Serve the actual image file from READY_ROOT safely."""
+    # Prevent path traversal
+    safe_rel = os.path.normpath(relpath).lstrip("/\\")
+    full = (READY_ROOT / safe_rel).resolve()
+    if not str(full).startswith(str(READY_ROOT.resolve())) or not full.exists():
+        raise Http404("Photo not found")
+
+    ctype, _ = mimetypes.guess_type(full.name)
+    resp = FileResponse(open(full, "rb"), content_type=ctype or "image/jpeg")
+    # Optional: allow browser caching; we’ll bust cache via ?v= timestamp on client
+    resp["Cache-Control"] = "public, max-age=86400"
+    return resp

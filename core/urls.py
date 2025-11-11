@@ -3,6 +3,7 @@ from django.http import HttpResponse
 from django.urls import path
 from daybuddy import views as cal_views
 
+
 def hms_view(_request):
     return HttpResponse("hms ok")
 
@@ -17,4 +18,7 @@ urlpatterns = [
     path("houseboard/daybuddy/week/", cal_views.week_view, name="daybuddy-week"),
     path("houseboard/hms/", hms_view),
     path("houseboard/security/", security_view),
+    path("houseboard/daybuddy/photos/random", cal_views.photo_random, name="db_photos_random"),
+    path("houseboard/daybuddy/photos/file/<path:relpath>", cal_views.photo_file, name="db_photos_file"),
+
 ]
