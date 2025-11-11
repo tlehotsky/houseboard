@@ -77,8 +77,13 @@ body::after{
 .wx-key .precip{color:#008ce0}
 #card-slideshow img{border-radius:8px;display:block;width:100%;height:auto}
 #card-slideshow .muted{margin-top:6px}
-#card-slideshow{ grid-column: 1 / -1; }
-#card-slideshow img{ max-height: 40vh; object-fit: contain; }
+#card-slideshow{ grid-column: 1 / -1; width: max-content; justify-self: start; }
+#card-slideshow img{ max-height: 40vh; }
+/* Tighter photo card framing */
+#card-slideshow{ padding:8px; }
+#card-slideshow .frame{ border:1px solid rgba(255,255,255,.35); border-radius:6px; overflow:hidden; display:flex; justify-content:flex-start; align-items:flex-start; }
+#card-slideshow .frame img{ display:block; width:auto; max-width:100%; height:auto; max-height:40vh; }
+#card-slideshow .muted{ margin-top:6px; }
 .cell{
   min-height:120px;
   background:#1b1f29;           /* slightly lighter than before for better contrast */
@@ -228,8 +233,8 @@ body::after{
     </div>
     <div class="card" id="card-slideshow">
       <h4>Family Photos</h4>
-      <div style="position:relative;overflow:hidden;border-radius:8px;">
-        <img id="slide-img" alt="slideshow" style="width:100%;height:auto;display:block;opacity:.0;transition:opacity .5s ease;">
+      <div class="frame">
+        <img id="slide-img" alt="slideshow" style="opacity:.0;transition:opacity .5s ease;">
       </div>
       <div class="muted" id="slide-meta"></div>
     </div>
