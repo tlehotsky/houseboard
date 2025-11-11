@@ -513,9 +513,41 @@ def photo_random(request):
     # Normalize/sanitize relpath coming from DB just in case
     relpath = os.path.normpath(relpath).replace("\\", "/")
     url = f"/houseboard/daybuddy/photos/file/{relpath}"
+
+    # Build a human-friendly label and fallback if EXIF is missing
+    label = None
+    try:
+        if taken_at:
+            dt = None
+            for fmt in ("%Y:%m:%d %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+                try:
+                    dt = datetime.datetime.strptime(taken_at, fmt)
+                    break
+                except Exception:
+                    pass
+            if dt:
+                label = dt.strftime("%b %d, %Y")
+    except Exception:
+        pass
+
+    if not label:
+        try:
+            full = (READY_ROOT / relpath).resolve()
+            ts = os.path.getmtime(full)
+            label = datetime.datetime.fromtimestamp(ts).strftime("%b %d, %Y")
+        except Exception:
+            label = None
+
     RECENT_IDS.append(pid)
 
-    return JsonResponse({"id": pid, "url": url, "width": w, "height": h, "taken_at": taken_at})
+    return JsonResponse({
+        "id": pid,
+        "url": url,
+        "width": w,
+        "height": h,
+        "taken_at": taken_at,
+        "taken_label": label,
+    })
 
 
 @require_GET

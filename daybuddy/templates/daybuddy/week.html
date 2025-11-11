@@ -75,9 +75,10 @@ body::after{
 .wx-key .sw{display:inline-block;width:20px;height:0;border-top:3px solid currentColor}
 .wx-key .temp{color:#ffd27d}
 .wx-key .precip{color:#008ce0}
-/* Slideshow tweaks */
 #card-slideshow img{border-radius:8px;display:block;width:100%;height:auto}
 #card-slideshow .muted{margin-top:6px}
+#card-slideshow{ grid-column: 1 / -1; }
+#card-slideshow img{ max-height: 40vh; object-fit: contain; }
 .cell{
   min-height:120px;
   background:#1b1f29;           /* slightly lighter than before for better contrast */
@@ -785,7 +786,7 @@ saveBtn.addEventListener('click', async () => {
         IMG.onload = () => { IMG.style.opacity = 1; };
       };
       preload.src = url;
-      META.textContent = j.taken_at ? `Taken ${j.taken_at}` : '';
+      META.textContent = (j.taken_label || j.taken_at) ? `Taken ${(j.taken_label || j.taken_at)}` : '';
     }catch(e){
       console.error(e);
       if(META) META.textContent = 'No photos available';
