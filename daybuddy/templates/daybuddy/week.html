@@ -63,7 +63,9 @@ body::after{
   .cards{ grid-template-columns: 1fr; }
 }
 .card{background:#1b1f29;border:1px solid #333;border-radius:10px;padding:12px;min-width:0}
+.card h4{margin:0 0 4px 0;font-weight:700;opacity:.9}
 # Tightened temperature card vertical spacing
+/* Tightened temperature card vertical spacing */
 .card h4{margin:0 0 4px 0;font-weight:700;opacity:.9}
 .card .big{font-size:176px;font-weight:800;letter-spacing:0.5px;line-height:.85;margin:0}
 .card .big .unit{ font-size:0.5em; margin-left:6px; opacity:.9; }
@@ -77,6 +79,11 @@ body::after{
 .wx-key .precip{color:#008ce0}
 #card-slideshow img{border-radius:8px;display:block;width:100%;height:auto}
 #card-slideshow .muted{margin-top:6px}
+#card-slideshow #slide-bar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:6px}
+#card-slideshow #slide-bar .qr img{display:block;width:auto;height:auto;max-width:100px}
+#card-slideshow #slide-bar .qr{ text-align:left; }
+#card-slideshow #slide-bar .qr .muted{ text-align:left; }
+#card-slideshow #slide-bar .meta{flex:1; text-align:right; }
 #card-slideshow{ grid-column: 1 / -1; width: max-content; justify-self: start; }
 #card-slideshow img{ max-height: 40vh; }
 /* Tighter photo card framing */
@@ -236,7 +243,13 @@ body::after{
       <div class="frame">
         <img id="slide-img" alt="slideshow" style="opacity:.0;transition:opacity .5s ease;">
       </div>
-      <div class="muted" id="slide-meta"></div>
+      <div id="slide-bar">
+        <div class="qr">
+          <img src="/houseboard/daybuddy/qr" alt="Upload QR" style="max-width:100px">
+          <div class="muted">Go here to add pictures to the slideshow</div>
+        </div>
+        <div class="muted meta" id="slide-meta"></div>
+      </div>
     </div>
   </div>
 </div>

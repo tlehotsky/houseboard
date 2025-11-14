@@ -26,11 +26,22 @@ from pathlib import Path
 from collections import deque
 from django.http import JsonResponse, FileResponse, Http404
 from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_http_methods, require_POST
+from django.utils.text import slugify
+
 
 
 PHOTOS_ROOT = Path("/srv/daybuddy/photos")
 READY_ROOT  = PHOTOS_ROOT / "ready"
 DB_PATH     = PHOTOS_ROOT / "index.sqlite3"
+
+# Static assets path for the always-visible upload QR code
+STATIC_DIR = Path("/srv/daybuddy/static")
+QR_PATH = STATIC_DIR / "daybuddy_upload_qr.png"
+
+# Upload destination and simple PIN gate for mobile uploads
+UPLOAD_DIR = PHOTOS_ROOT / "incoming" / "upload"
+UPLOAD_PIN = os.environ.get("DAYBUDDY_UPLOAD_PIN", getattr(settings, "DAYBUDDY_UPLOAD_PIN", "2468"))
 
 # Keep a small ring buffer of recently shown ids to reduce repeats
 RECENT_IDS = deque(maxlen=200)
@@ -550,6 +561,7 @@ def photo_random(request):
     })
 
 
+
 @require_GET
 def photo_file(request, relpath):
     """Serve the actual image file from READY_ROOT safely."""
@@ -564,3 +576,86 @@ def photo_file(request, relpath):
     # Optional: allow browser caching; we’ll bust cache via ?v= timestamp on client
     resp["Cache-Control"] = "public, max-age=86400"
     return resp
+
+
+# Serve the persistent QR code so anyone can scan to upload.
+@require_GET
+def daybuddy_qr(request):
+    """Serve the persistent QR code so anyone can scan to upload."""
+    full = QR_PATH
+    if not full.exists():
+        raise Http404("QR not found")
+    resp = FileResponse(open(full, "rb"), content_type="image/png")
+    resp["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
+# iPhone-friendly photo upload flow
+@require_http_methods(["GET"])
+def photo_upload_form(request):
+    html = f"""
+    <!doctype html>
+    <meta name=viewport content=\"width=device-width, initial-scale=1\">
+    <title>DayBuddy – Upload Photo</title>
+    <style>
+      body{{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0;padding:24px}}
+      .card{{background:#1b1f29;border:1px solid #333;border-radius:12px;padding:16px;max-width:520px;margin:0 auto}}
+      h1{{margin:0 0 12px 0;font-size:22px}}
+      label{{display:block;margin:10px 0 6px 0;opacity:.9}}
+      input[type=text],input[type=password]{{width:100%;background:#141b24;border:1px solid #283246;border-radius:8px;padding:10px;color:#f2f5f9}}
+      input[type=file]{{display:block;width:100%;margin:8px 0;color:#e6eaf2}}
+      button{{background:#1a2333;color:#f2f5f9;border:1px solid #2a3750;border-radius:10px;padding:10px 14px;font-weight:600;}}
+      .muted{{opacity:.75;font-size:14px;margin-top:8px}}
+      a{{color:#9fc4ff}}
+    </style>
+    <div class=card>
+      <h1>Upload to DayBuddy</h1>
+      <form method=\"post\" action=\"/houseboard/daybuddy/photos/upload\" enctype=\"multipart/form-data\">
+        <label>PIN</label>
+        <input type=\"password\" name=\"pin\" inputmode=\"numeric\" autocomplete=\"one-time-code\" placeholder=\"Enter PIN\" required>
+        <label>Photo</label>
+        <input type=\"file\" name=\"photo\" accept=\"image/*\" required>
+        <button type=\"submit\">Upload</button>
+        <div class=\"muted\">Tip: on iPhone, choose Camera or Photo Library. Duplicates are auto-ignored by DayBuddy ingest.</div>
+      </form>
+      <p class=\"muted\">Back to <a href=\"/houseboard/daybuddy/week/\">Week View</a></p>
+    </div>
+    """
+    return HttpResponse(html)
+
+@csrf_exempt
+@require_POST
+def photo_upload(request):
+    # PIN gate
+    pin = (request.POST.get("pin") or "").strip()
+    if not UPLOAD_PIN or pin != UPLOAD_PIN:
+        return HttpResponse("<p style='color:#f66'>Invalid PIN.</p>", status=403)
+
+    f = request.FILES.get("photo")
+    if not f:
+        return HttpResponse("<p style='color:#f66'>No file provided.</p>", status=400)
+
+    ctype = f.content_type or ""
+    if not ctype.startswith("image/"):
+        return HttpResponse("<p style='color:#f66'>File must be an image.</p>", status=415)
+    if f.size and f.size > 50*1024*1024:
+        return HttpResponse("<p style='color:#f66'>File too large.</p>", status=413)
+
+    base = Path(getattr(f, "name", "upload.jpg")).name
+    stem = slugify(base.rsplit('.',1)[0]) or "photo"
+    ext = ('.' + base.rsplit('.',1)[1].lower()) if ('.' in base) else '.jpg'
+    ts = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    fname = f"{ts}-{stem}{ext}"
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    outpath = UPLOAD_DIR / fname
+    with outpath.open('wb') as dst:
+        for chunk in f.chunks():
+            dst.write(chunk)
+
+    return HttpResponse(
+        "<meta name=viewport content='width=device-width, initial-scale=1'>"
+        "<p style='color:#9fe'>Uploaded ✓</p>"
+        "<p><a href='/houseboard/daybuddy/photos/upload/'>Upload another</a> • "
+        "<a href='/houseboard/daybuddy/week/'>Back to Week View</a></p>"
+    )

@@ -20,5 +20,7 @@ urlpatterns = [
     path("houseboard/security/", security_view),
     path("houseboard/daybuddy/photos/random", cal_views.photo_random, name="db_photos_random"),
     path("houseboard/daybuddy/photos/file/<path:relpath>", cal_views.photo_file, name="db_photos_file"),
-
+    path("houseboard/daybuddy/photos/upload", cal_views.photo_upload, name="db_upload"),
+    path("houseboard/daybuddy/photos/upload/", cal_views.photo_upload_form, name="db_upload_form"),
+    path("houseboard/daybuddy/qr", cal_views.daybuddy_qr, name="db_qr"),
 ]
