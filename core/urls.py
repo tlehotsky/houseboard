@@ -23,4 +23,5 @@ urlpatterns = [
     path("houseboard/daybuddy/photos/upload", cal_views.photo_upload, name="db_upload"),
     path("houseboard/daybuddy/photos/upload/", cal_views.photo_upload_form, name="db_upload_form"),
     path("houseboard/daybuddy/qr", cal_views.daybuddy_qr, name="db_qr"),
+    path("houseboard/daybuddy/nhl/rangers/schedule", cal_views.rangers_schedule, name="rangers-schedule"),
 ]

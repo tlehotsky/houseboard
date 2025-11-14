@@ -1,4 +1,8 @@
-import calendar, datetime
+
+
+
+from django.views.decorators.http import require_GET
+import calendar, datetime, csv
 from collections import defaultdict
 
 from django.conf import settings
@@ -25,7 +29,6 @@ import os, sqlite3, mimetypes
 from pathlib import Path
 from collections import deque
 from django.http import JsonResponse, FileResponse, Http404
-from django.views.decorators.http import require_GET
 from django.views.decorators.http import require_http_methods, require_POST
 from django.utils.text import slugify
 
@@ -45,6 +48,106 @@ UPLOAD_PIN = os.environ.get("DAYBUDDY_UPLOAD_PIN", getattr(settings, "DAYBUDDY_U
 
 # Keep a small ring buffer of recently shown ids to reduce repeats
 RECENT_IDS = deque(maxlen=200)
+
+
+
+
+# --- Rangers schedule API for DayBuddy card ---
+# --- Rangers schedule API for DayBuddy card (CSV-based) ---
+@require_GET
+def rangers_schedule(request):
+    """
+    Return New York Rangers schedule for the next 7 days based on a local CSV file.
+
+    CSV path: /srv/daybuddy/data/ny_rangers_2025_2026_schedule.csv
+
+    Expected CSV header (case-insensitive, flexible):
+      - date        (e.g. 2025-11-14 or 11/14/2025)
+      - time        (e.g. 7:00 PM)
+      - opponent    (e.g. New Jersey Devils)
+      - home_away   (e.g. Home or Away)
+      - status      (optional, e.g. Final, Scheduled)
+    """
+    csv_path = Path("/srv/daybuddy/data/ny_rangers_2025_2026_schedule.csv")
+    if not csv_path.exists():
+        # Fail soft: empty list, but valid JSON
+        return JsonResponse({"games": []})
+
+    today = datetime.date.today()
+    end = today + datetime.timedelta(days=6)
+
+    def first(d, *names):
+        """Return first non-empty field from possible column names."""
+        for name in names:
+            if name in d and d[name]:
+                return d[name]
+        return ""
+
+    games_out = []
+
+    with csv_path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            raw_date = first(row, "date", "Date", "DATE")
+            raw_time = first(row, "time", "Time", "TIME")
+            opponent = first(row, "opponent", "Opponent", "OPP", "Opp")
+            home_away = first(row, "home_away", "Home/Away", "HomeAway", "HA")
+            status = first(row, "status", "Status")
+
+            if not raw_date:
+                continue
+
+            # --- Parse date from CSV ---
+            date_obj = None
+            raw_date_stripped = raw_date.strip()
+            for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+                try:
+                    date_obj = datetime.datetime.strptime(raw_date_stripped, fmt).date()
+                    break
+                except ValueError:
+                    continue
+            if date_obj is None:
+                # Skip unparseable dates
+                continue
+
+            # --- Filter to next 7 days window ---
+            if not (today <= date_obj <= end):
+                continue
+
+            # --- Parse / normalize time label ---
+            time_label = raw_time.strip() if raw_time else ""
+            if raw_time:
+                raw_t = raw_time.strip()
+                parsed = False
+                for fmt in ("%I:%M %p", "%I:%M%p", "%H:%M"):
+                    try:
+                        tdt = datetime.datetime.strptime(raw_t, fmt)
+                        # Format as 7:00 PM
+                        time_label = tdt.strftime("%-I:%M %p")
+                        parsed = True
+                        break
+                    except ValueError:
+                        continue
+                if not parsed:
+                    time_label = raw_t  # fall back to raw CSV text
+
+            # --- Display labels ---
+            date_label = date_obj.strftime("%b %-d")   # e.g. Nov 14
+            day_label = date_obj.strftime("%a")        # e.g. Fri
+
+            games_out.append({
+                "date": date_obj.isoformat(),
+                "date_label": date_label,
+                "day_label": day_label,
+                "time_label": time_label,
+                "home_away": home_away,
+                "opponent": opponent,
+                "status": status,
+            })
+
+    games_out.sort(key=lambda g: (g["date"], g["time_label"] or ""))
+
+    return JsonResponse({"games": games_out})
 
 
 def healthz(_request):

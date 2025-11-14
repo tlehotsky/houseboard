@@ -79,6 +79,31 @@ body::after{
 .wx-key .precip{color:#008ce0}
 #card-slideshow img{border-radius:8px;display:block;width:100%;height:auto}
 #card-slideshow .muted{margin-top:6px}
+/* Rangers schedule card */
+#card-rangers ul{
+  list-style:none;
+  margin:6px 0 0;
+  padding:0;
+}
+#card-rangers li{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  font-size:14px;
+  padding:4px 0;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+#card-rangers li:last-child{
+  border-bottom:none;
+}
+#card-rangers .left{
+  opacity:.9;
+}
+#card-rangers .right{
+  opacity:.75;
+  text-align:right;
+  white-space:nowrap;
+}
 #card-slideshow #slide-bar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:6px}
 #card-slideshow #slide-bar .qr img{display:block;width:auto;height:auto;max-width:100px}
 #card-slideshow #slide-bar .qr{ text-align:left; }
@@ -250,6 +275,10 @@ body::after{
         </div>
         <div class="muted meta" id="slide-meta"></div>
       </div>
+    </div>
+    <div class="card" id="card-rangers">
+      <h4>NY Rangers – Next 7 Days</h4>
+      <div class="muted" id="rangers-sched">Loading schedule…</div>
     </div>
   </div>
 </div>
@@ -823,5 +852,58 @@ saveBtn.addEventListener('click', async () => {
   });
 
   start();
+})();
+
+// --- Rangers schedule card ---
+(async function loadRangersSchedule(){
+  const box = document.getElementById('rangers-sched');
+  if (!box) return;
+
+  try {
+    const res = await fetch('/houseboard/daybuddy/nhl/rangers/schedule', { cache: 'no-store' });
+    if (!res.ok) throw new Error('Rangers schedule HTTP ' + res.status);
+
+    const data = await res.json();
+    const games = Array.isArray(data.games) ? data.games : [];
+
+    if (!games.length) {
+      box.textContent = 'No games in the next 7 days.';
+      return;
+    }
+
+    const ul = document.createElement('ul');
+    ul.className = 'rangers-list';
+
+    games.forEach(g => {
+      const dayLabel = g.day_label || '';
+      const dateLabel = g.date_label || '';
+      const opponent = g.opponent || '';
+      const homeAway = g.home_away || '';
+      const timeLabel = g.time_label || '';
+
+      const li = document.createElement('li');
+
+      const left = document.createElement('div');
+      left.className = 'left';
+      left.textContent = `${dayLabel} ${dateLabel} vs ${opponent}`.trim();
+
+      const right = document.createElement('div');
+      right.className = 'right';
+      const parts = [];
+      if (homeAway) parts.push(homeAway);
+      if (timeLabel) parts.push(timeLabel);
+      right.textContent = parts.join(' • ');
+
+      li.appendChild(left);
+      li.appendChild(right);
+      ul.appendChild(li);
+    });
+
+    box.innerHTML = '';
+    box.appendChild(ul);
+  } catch (e) {
+    console.error('Rangers schedule error:', e);
+    box.textContent = 'Schedule unavailable.';
+  }
 })();
 </script>
