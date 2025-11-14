@@ -59,6 +59,12 @@ body::after{
   gap:12px;
   margin:16px 20px 90px;
 }
+.card-row-schedules{
+  grid-column:1 / -1;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
 @media (max-width: 980px){
   .cards{ grid-template-columns: 1fr; }
 }
@@ -274,9 +280,15 @@ body::after{
         <span class="wx-key"><span class="sw precip"></span> Chance of Precip (%)</span>
       </div>
     </div>
-    <div class="card" id="card-rangers">
-      <h4>NY Rangers – Next 7 Days</h4>
-      <div id="rangers-sched">Loading schedule…</div>
+    <div class="card-row-schedules">
+      <div class="card" id="card-rangers">
+        <h4>NY Rangers – Next 7 Days</h4>
+        <div id="rangers-sched">Loading schedule…</div>
+      </div>
+      <div class="card" id="card-nfl">
+        <h4>NFL – Next 7 Days</h4>
+        <div id="nfl-sched">Coming soon</div>
+      </div>
     </div>
     <div class="card" id="card-slideshow">
       <h4>Family Photos</h4>
