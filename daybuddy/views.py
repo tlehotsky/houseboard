@@ -733,6 +733,9 @@ def photo_random(request):
         con = sqlite3.connect(DB_PATH)
         cur = con.cursor()
 
+        cols = [r[1] for r in cur.execute("PRAGMA table_info(photos)")]
+        has_archived = "archived_at" in cols
+
         # Count how many photos exist in total
         total = cur.execute("SELECT COUNT(*) FROM photos").fetchone()[0]
 
@@ -747,20 +750,35 @@ def photo_random(request):
                         SELECT id, relpath, width, height, taken_at, lat, lon
                         FROM photos
                         WHERE id NOT IN ({placeholders})
+                    """
+                    if has_archived:
+                        q += " AND (archived_at IS NULL OR archived_at = '')"
+                    q += """
                         ORDER BY RANDOM()
                         LIMIT 1
                     """
                     row = cur.execute(q, recent).fetchone()
             # Fallback: allow repeats when everything is in the recent buffer
             if row is None:
-                row = cur.execute(
-                    """
-                    SELECT id, relpath, width, height, taken_at, lat, lon
-                    FROM photos
-                    ORDER BY RANDOM()
-                    LIMIT 1
-                    """
-                ).fetchone()
+                if has_archived:
+                    row = cur.execute(
+                        """
+                        SELECT id, relpath, width, height, taken_at, lat, lon
+                        FROM photos
+                        WHERE archived_at IS NULL OR archived_at = ''
+                        ORDER BY RANDOM()
+                        LIMIT 1
+                        """
+                    ).fetchone()
+                else:
+                    row = cur.execute(
+                        """
+                        SELECT id, relpath, width, height, taken_at, lat, lon
+                        FROM photos
+                        ORDER BY RANDOM()
+                        LIMIT 1
+                        """
+                    ).fetchone()
     finally:
         try:
             con.close()
@@ -922,3 +940,49 @@ def photo_upload(request):
         "<p><a href='/houseboard/daybuddy/photos/upload/'>Upload another</a> • "
         "<a href='/houseboard/daybuddy/week/'>Back to Week View</a></p>"
     )
+
+
+# --- Archive photo endpoint ---
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+@csrf_exempt
+@require_POST
+def photo_archive(request):
+    """
+    Mark a photo as archived so it no longer appears in the slideshow.
+    Body: {"id": <photo_id>}
+    """
+    if not DB_PATH.exists():
+        return JsonResponse({"error": "index not ready"}, status=503)
+
+    try:
+        import json
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+        pid = int(payload.get("id"))
+    except Exception:
+        return JsonResponse({"error": "invalid payload"}, status=400)
+
+    try:
+        con = sqlite3.connect(DB_PATH)
+        cur = con.cursor()
+        # Ensure archived_at column exists (idempotent)
+        try:
+            cur.execute("ALTER TABLE photos ADD COLUMN archived_at TEXT")
+        except sqlite3.OperationalError as e:
+            if "duplicate column name" not in str(e):
+                raise
+        # Archive this photo
+        cur.execute(
+            "UPDATE photos SET archived_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (pid,),
+        )
+        con.commit()
+        return JsonResponse({"ok": True, "id": pid})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass

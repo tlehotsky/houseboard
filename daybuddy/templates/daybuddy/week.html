@@ -162,9 +162,12 @@ body::after{
 #card-slideshow #slide-bar .qr img{display:block;width:auto;height:auto;max-width:100px}
 #card-slideshow #slide-bar .qr{ text-align:left; }
 #card-slideshow #slide-bar .qr .muted{ text-align:left; }
-#card-slideshow #slide-bar .meta{flex:1; text-align:right; }
+#card-slideshow #slide-bar .meta-area{flex:1;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+#card-slideshow #slide-bar .meta{ text-align:right; }
 #card-slideshow{ grid-column: 1 / -1; width: max-content; justify-self: start; }
 #card-slideshow img{ max-height: 40vh; }
+#archive-photo-btn{background:#2a354a;color:#f2f5f9;border:1px solid #3b4765;border-radius:8px;padding:4px 10px;font-size:13px;font-weight:500;cursor:pointer;}
+#archive-photo-btn:hover{background:#34415a;border-color:#4d5c7a;}
 /* Tighter photo card framing */
 #card-slideshow{ padding:8px; }
 #card-slideshow .frame{ border:1px solid rgba(255,255,255,.35); border-radius:6px; overflow:hidden; display:flex; justify-content:flex-start; align-items:flex-start; }
@@ -337,7 +340,10 @@ body::after{
           <img src="/houseboard/daybuddy/qr" alt="Upload QR" style="max-width:100px">
           <div class="muted">Go here to add pictures to the slideshow</div>
         </div>
-        <div class="muted meta" id="slide-meta"></div>
+        <div class="meta-area">
+          <div class="muted meta" id="slide-meta"></div>
+          <button id="archive-photo-btn" type="button">Archive this photo</button>
+        </div>
       </div>
     </div>
   </div>
@@ -875,15 +881,23 @@ saveBtn.addEventListener('click', async () => {
 (function(){
   const IMG = document.getElementById('slide-img');
   const META = document.getElementById('slide-meta');
+  const ARCHIVE_BTN = document.getElementById('archive-photo-btn');
   if(!IMG) return; // card not present
 
   let timer = null;
+  let currentId = null;
+
   async function loadOne() {
     try{
       const res = await fetch('/houseboard/daybuddy/photos/random', {cache:'no-store'});
       if(!res.ok) throw new Error('random fetch failed');
       const j = await res.json();
-      if(!j || !j.url){ META.textContent = 'No photos available'; return; }
+      if(!j || !j.url){
+        META.textContent = 'No photos available';
+        currentId = null;
+        return;
+      }
+      currentId = j.id || null;
       const url = j.url + '?v=' + Date.now(); // cache-bust
       // fade out, swap, fade in
       IMG.style.opacity = 0;
@@ -924,7 +938,34 @@ saveBtn.addEventListener('click', async () => {
     }catch(e){
       console.error(e);
       if(META) META.textContent = 'No photos available';
+      currentId = null;
     }
+  }
+
+  if (ARCHIVE_BTN) {
+    ARCHIVE_BTN.addEventListener('click', async () => {
+      if (!currentId) return;
+      try{
+        ARCHIVE_BTN.disabled = true;
+        const res = await fetch('/houseboard/daybuddy/photos/archive', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({id: currentId})
+        });
+        if (!res.ok) {
+          console.error('Archive failed', await res.text());
+          META.textContent = 'Archive failed.';
+          return;
+        }
+        META.textContent = 'Photo archived. Loading next photo…';
+        await loadOne();
+      }catch(e){
+        console.error(e);
+        META.textContent = 'Archive failed.';
+      }finally{
+        ARCHIVE_BTN.disabled = false;
+      }
+    });
   }
 
   function start(){
