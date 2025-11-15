@@ -150,6 +150,111 @@ def rangers_schedule(request):
     return JsonResponse({"games": games_out})
 
 
+@require_GET
+def nfl_schedule(request):
+    """
+    Return NFL schedule for the next 7 days based on the local season CSV.
+
+    Looks for one of the following files under /srv/daybuddy/data:
+      - nfl_schedule_2025.csv
+      - nfl_2025_full.csv
+
+    Expected columns (case-insensitive, flexible):
+      - Home Team / Away Team
+      - Date  (e.g. 05/09/2025 00:20 or 09/05/2025 00:20)
+
+    Output format is similar to the Rangers endpoint, but "opponent" is a
+    simple "Home vs Away" label, with no extra prefixes.
+    """
+    base_dir = Path("/srv/daybuddy/data")
+    candidates = [
+        base_dir / "nfl_schedule_2025.csv",
+        base_dir / "nfl_2025_full.csv",
+    ]
+    csv_path = None
+    for p in candidates:
+        if p.exists():
+            csv_path = p
+            break
+    if not csv_path:
+        return JsonResponse({"games": []})
+
+    today = datetime.date.today()
+    end = today + datetime.timedelta(days=6)
+
+    def first(d, *names):
+        """Return first non-empty field from possible column names."""
+        for name in names:
+            if name in d and d[name]:
+                return d[name]
+        return ""
+
+    def nickname(name: str) -> str:
+        parts = (name or "").split()
+        return parts[-1] if parts else (name or "")
+
+    games_out = []
+
+    with csv_path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            raw_dt = first(row, "Date", "date", "DATE")
+            if not raw_dt:
+                continue
+
+            # Parse date/time; CSV has strings like "05/09/2025 00:20".
+            dt_obj = None
+            raw_dt_stripped = raw_dt.strip()
+            for fmt in (
+                "%d/%m/%Y %H:%M",
+                "%m/%d/%Y %H:%M",
+                "%Y-%m-%d %H:%M",
+                "%d/%m/%Y",
+                "%m/%d/%Y",
+                "%Y-%m-%d",
+            ):
+                try:
+                    dt_obj = datetime.datetime.strptime(raw_dt_stripped, fmt)
+                    break
+                except ValueError:
+                    continue
+            if dt_obj is None:
+                continue
+
+            date_obj = dt_obj.date()
+
+            # Only keep games in the next 7 calendar days (including today)
+            if not (today <= date_obj <= end):
+                continue
+
+            home_team = first(row, "Home Team", "Home", "home", "HOME TEAM") or "Home"
+            away_team = first(row, "Away Team", "Away", "away", "AWAY TEAM") or "Away"
+
+            # Use only the nickname (last word), e.g. "Eagles" from "Philadelphia Eagles"
+            matchup = f"{nickname(home_team)} vs {nickname(away_team)}".strip()
+
+            date_label = date_obj.strftime("%b %-d")   # e.g. Nov 15
+            day_label = date_obj.strftime("%a")        # e.g. Sat
+
+            games_out.append(
+                {
+                    "date": date_obj.isoformat(),
+                    "date_label": date_label,
+                    "day_label": day_label,
+                    # keep time_label empty for a very simple display
+                    "time_label": "",
+                    # no explicit home/away tag; the matchup label is enough
+                    "home_away": "",
+                    "opponent": matchup,
+                    "status": first(row, "Result", "Status", "status"),
+                }
+            )
+
+    games_out.sort(key=lambda g: (g["date"], g["opponent"] or ""))
+
+    return JsonResponse({"games": games_out})
+
+
 def healthz(_request):
     return HttpResponse("ok")
 
