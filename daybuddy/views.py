@@ -4,6 +4,7 @@
 from django.views.decorators.http import require_GET
 import calendar, datetime, csv
 from collections import defaultdict
+from functools import lru_cache
 
 from django.conf import settings
 import json as _json
@@ -48,6 +49,47 @@ UPLOAD_PIN = os.environ.get("DAYBUDDY_UPLOAD_PIN", getattr(settings, "DAYBUDDY_U
 
 # Keep a small ring buffer of recently shown ids to reduce repeats
 RECENT_IDS = deque(maxlen=200)
+
+
+# Helper: cache reverse geocode (lat, lon) -> city, state using Nominatim
+@lru_cache(maxsize=512)
+def _reverse_city_state(lat_rounded, lon_rounded):
+    """
+    Best-effort reverse geocode (lat, lon) -> 'City, State' using Nominatim.
+    lat_rounded and lon_rounded should be short floats (e.g., rounded to 4 decimals)
+    so the cache can be effective.
+    """
+    try:
+        url = "https://nominatim.openstreetmap.org/reverse"
+        params = {
+            "format": "jsonv2",
+            "lat": str(lat_rounded),
+            "lon": str(lon_rounded),
+            "zoom": "10",
+            "addressdetails": "1",
+        }
+        headers = {
+            "User-Agent": "daybuddy/1.0 (+https://example.com)"
+        }
+        resp = requests.get(url, params=params, headers=headers, timeout=3)
+        if not resp.ok:
+            return None
+        data = resp.json()
+        addr = data.get("address", {}) or {}
+        city = (
+            addr.get("city")
+            or addr.get("town")
+            or addr.get("village")
+            or addr.get("hamlet")
+        )
+        state = addr.get("state")
+        if city and state:
+            return f"{city}, {state}"
+        if state:
+            return state
+        return city or None
+    except Exception:
+        return None
 
 
 
@@ -759,6 +801,16 @@ def photo_random(request):
 
     RECENT_IDS.append(pid)
 
+    # Best-effort city/state label from lat/lon
+    location_label = None
+    if lat is not None and lon is not None:
+        try:
+            lat_r = round(float(lat), 4)
+            lon_r = round(float(lon), 4)
+            location_label = _reverse_city_state(lat_r, lon_r)
+        except Exception:
+            location_label = None
+
     return JsonResponse({
         "id": pid,
         "url": url,
@@ -768,6 +820,7 @@ def photo_random(request):
         "taken_label": label,
         "lat": lat,
         "lon": lon,
+        "location_label": location_label,
     })
 
 

@@ -898,7 +898,11 @@ saveBtn.addEventListener('click', async () => {
       const datePart = j.taken_label || j.taken_at || '';
       let placePart = '';
 
-      if (typeof j.lat === 'number' && typeof j.lon === 'number') {
+      // Prefer human-friendly city/state from the backend, if available
+      if (j.location_label) {
+        placePart = `Photo taken at ${j.location_label}`;
+      } else if (typeof j.lat === 'number' && typeof j.lon === 'number') {
+        // Fallback to numeric lat/lon if we don't have a city/state label
         const latAbs = Math.abs(j.lat).toFixed(4);
         const lonAbs = Math.abs(j.lon).toFixed(4);
         const ns = j.lat >= 0 ? 'N' : 'S';
@@ -909,12 +913,14 @@ saveBtn.addEventListener('click', async () => {
       if (placePart && datePart) {
         label = `${placePart} on ${datePart}`;
       } else if (datePart) {
-        label = `Taken ${datePart}`;
+        label = `Photo taken on ${datePart}`;
       } else if (placePart) {
         label = placePart;
+      } else {
+        label = '';
       }
 
-      META.textContent = label;
+      META.textContent = label || 'Photo';
     }catch(e){
       console.error(e);
       if(META) META.textContent = 'No photos available';
