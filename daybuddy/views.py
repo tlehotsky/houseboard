@@ -702,7 +702,7 @@ def photo_random(request):
                 if len(recent) < total:
                     placeholders = ",".join("?" for _ in recent)
                     q = f"""
-                        SELECT id, relpath, width, height, taken_at
+                        SELECT id, relpath, width, height, taken_at, lat, lon
                         FROM photos
                         WHERE id NOT IN ({placeholders})
                         ORDER BY RANDOM()
@@ -713,7 +713,7 @@ def photo_random(request):
             if row is None:
                 row = cur.execute(
                     """
-                    SELECT id, relpath, width, height, taken_at
+                    SELECT id, relpath, width, height, taken_at, lat, lon
                     FROM photos
                     ORDER BY RANDOM()
                     LIMIT 1
@@ -728,7 +728,7 @@ def photo_random(request):
     if not row:
         return JsonResponse({"error": "no photos"}, status=404)
 
-    pid, relpath, w, h, taken_at = row
+    pid, relpath, w, h, taken_at, lat, lon = row
     # Normalize/sanitize relpath coming from DB just in case
     relpath = os.path.normpath(relpath).replace("\\", "/")
     url = f"/houseboard/daybuddy/photos/file/{relpath}"
@@ -766,6 +766,8 @@ def photo_random(request):
         "height": h,
         "taken_at": taken_at,
         "taken_label": label,
+        "lat": lat,
+        "lon": lon,
     })
 
 

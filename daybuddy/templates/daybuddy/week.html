@@ -893,7 +893,28 @@ saveBtn.addEventListener('click', async () => {
         IMG.onload = () => { IMG.style.opacity = 1; };
       };
       preload.src = url;
-      META.textContent = (j.taken_label || j.taken_at) ? `Taken ${(j.taken_label || j.taken_at)}` : '';
+
+      let label = '';
+      const datePart = j.taken_label || j.taken_at || '';
+      let placePart = '';
+
+      if (typeof j.lat === 'number' && typeof j.lon === 'number') {
+        const latAbs = Math.abs(j.lat).toFixed(4);
+        const lonAbs = Math.abs(j.lon).toFixed(4);
+        const ns = j.lat >= 0 ? 'N' : 'S';
+        const ew = j.lon >= 0 ? 'E' : 'W';
+        placePart = `Photo taken at ${latAbs}°${ns}, ${lonAbs}°${ew}`;
+      }
+
+      if (placePart && datePart) {
+        label = `${placePart} on ${datePart}`;
+      } else if (datePart) {
+        label = `Taken ${datePart}`;
+      } else if (placePart) {
+        label = placePart;
+      }
+
+      META.textContent = label;
     }catch(e){
       console.error(e);
       if(META) META.textContent = 'No photos available';

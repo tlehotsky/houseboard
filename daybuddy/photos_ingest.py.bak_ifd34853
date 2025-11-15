@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+import os, time, hashlib, sqlite3, sys
+from pathlib import Path
+
+# Optional HEIC support (safe to skip if not installed)
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except Exception:
+    pass
+
+from PIL import Image, ImageOps, ExifTags
+import imagehash
+
+ROOT     = Path("/srv/daybuddy/photos")
+INCOMING = ROOT / "incoming" / "upload"
+READY    = ROOT / "ready"
+DBPATH   = ROOT / "index.sqlite3"
+
+
+def log(*a):
+    print(*a, flush=True)
+
+
+def sha256_file(p: Path) -> str:
+    h = hashlib.sha256()
+    with p.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def load_normalized(p: Path) -> Image.Image:
+    img = Image.open(p)
+    img = ImageOps.exif_transpose(img)  # fix orientation
+    return img.convert("RGB")
+
+
+def pixel_sha256(img: Image.Image) -> str:
+    return hashlib.sha256(img.tobytes()).hexdigest()
+
+
+def ensure_db():
+    con = sqlite3.connect(DBPATH)
+    con.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS photos (
+          id INTEGER PRIMARY KEY,
+          relpath TEXT NOT NULL UNIQUE,
+          file_sha256 TEXT,
+          pixel_sha256 TEXT,
+          phash_hex TEXT,
+          width INTEGER,
+          height INTEGER,
+          taken_at TEXT,
+          lat REAL,
+          lon REAL,
+          added_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_file_sha256  ON photos(file_sha256);
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_pixel_sha256 ON photos(pixel_sha256);
+        """
+    )
+    return con
+
+
+def near_dup(con, phash_hex, threshold=10):
+    if not phash_hex:
+        return False
+    rows = con.execute(
+        "SELECT phash_hex FROM photos WHERE phash_hex IS NOT NULL"
+    ).fetchall()
+    b = int(phash_hex, 16)
+    for (h,) in rows:
+        try:
+            if (b ^ int(h, 16)).bit_count() <= threshold:
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def save_jpeg(img: Image.Image, outpath: Path):
+    outpath.parent.mkdir(parents=True, exist_ok=True)
+    img.save(outpath, "JPEG", quality=88, optimize=True, progressive=True)
+
+
+ACCEPT_EXT = {
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+    ".heic",
+    ".heif",
+    ".JPG",
+    ".JPEG",
+    ".PNG",
+    ".WEBP",
+    ".HEIC",
+    ".HEIF",
+}
+
+
+def process_one(con, p: Path, dry=False):
+    if p.suffix not in ACCEPT_EXT:
+        log("skip (ext):", p.name)
+        return
+
+    try:
+        fhash = sha256_file(p)
+        if con.execute(
+            "SELECT 1 FROM photos WHERE file_sha256=?",
+            (fhash,),
+        ).fetchone():
+            log("skip (exact dupe):", p.name)
+            if not dry:
+                p.unlink(missing_ok=True)
+            return
+
+        # raw keeps EXIF; img is used for hashing/saving
+        raw = Image.open(p)
+        raw = ImageOps.exif_transpose(raw)
+        img = raw.convert("RGB")
+    except Exception as e:
+        log("ERROR open:", p.name, e)
+        return
+
+    pxhash = pixel_sha256(img)
+    if con.execute(
+        "SELECT 1 FROM photos WHERE pixel_sha256=?",
+        (pxhash,),
+    ).fetchone():
+        log("skip (pixel dupe):", p.name)
+        if not dry:
+            p.unlink(missing_ok=True)
+        return
+
+    phx = str(imagehash.phash(img, hash_size=8))  # 64-bit perceptual hash
+    if near_dup(con, phx, threshold=10):
+        log("skip (near-dupe):", p.name)
+        if not dry:
+            p.unlink(missing_ok=True)
+        return
+
+    sub = time.strftime("%Y/%m")
+    out = READY / sub / f"{pxhash[:16]}.jpg"
+    log(("DRY→ " if dry else "") + f"{p.name} → {out}")
+
+    if dry:
+        return
+
+    # Save the JPEG and insert into DB
+    save_jpeg(img, out)
+    rel = str(out.relative_to(READY))
+    con.execute(
+        "INSERT INTO photos (relpath,file_sha256,pixel_sha256,phash_hex,width,height)"
+        " VALUES (?,?,?,?,?,?)",
+        (rel, fhash, pxhash, phx, img.width, img.height),
+    )
+
+    # Try to capture EXIF 'DateTimeOriginal' and GPS into taken_at/lat/lon
+    try:
+        exif = raw.getexif()
+        ts = exif.get(36867) or exif.get(306) if exif else None
+        lat = lon = None
+        gps = None
+
+        if exif:
+            try:
+                # Use IFD-based GPS access (Pillow 10+)
+                gps = exif.get_ifd(ExifTags.IFD.GPS)
+            except Exception:
+                gps = None
+
+        if gps:
+            def dms_to_deg(dms, ref):
+                d = dms[0][0] / dms[0][1]
+                m = dms[1][0] / dms[1][1]
+                s = dms[2][0] / dms[2][1]
+                deg = d + m/60 + s/3600
+                if ref in ("S", "W"):
+                    deg = -deg
+                return deg
+
+            if 1 in gps and 2 in gps:
+                lat = dms_to_deg(gps[2], gps[1])
+            if 3 in gps and 4 in gps:
+                lon = dms_to_deg(gps[4], gps[3])
+
+        con.execute(
+            "UPDATE photos SET taken_at=COALESCE(?, taken_at), "
+            "lat=COALESCE(?, lat), lon=COALESCE(?, lon) "
+            "WHERE relpath=?",
+            (ts, lat, lon, rel),
+        )
+    except Exception as e:
+        log("WARN exif/gps:", p.name, e)
+
+    con.commit()
+    p.unlink(missing_ok=True)
+
+
+def main():
+    dry = "--dry-run" in sys.argv
+    con = ensure_db()
+    INCOMING.mkdir(parents=True, exist_ok=True)
+    READY.mkdir(parents=True, exist_ok=True)
+
+    for p in sorted(INCOMING.iterdir()):
+        if p.is_file():
+            try:
+                process_one(con, p, dry)
+            except Exception as e:
+                log("ERROR:", p.name, e)
+
+
+if __name__ == "__main__":
+    main()
