@@ -424,7 +424,8 @@ def _month_matrix(year, month):
     start, end = _month_bounds(year, month)
 
     all_evts = []
-    for person in (settings.CAL_SOURCES or []):
+    srcs = _read_cal_sources()
+    for person in (srcs or []):
         try:
             cal = _fetch_cal(person["ics_url"])
             src_events = _expand(cal, start, end, person)
@@ -460,7 +461,8 @@ def _range_matrix(start: datetime.date, end: datetime.date):
         return cached
 
     all_evts = []
-    for person in (settings.CAL_SOURCES or []):
+    srcs = _read_cal_sources()
+    for person in (srcs or []):
         try:
             cal = _fetch_cal(person["ics_url"])
             src_events = _expand(cal, start, end, person)
@@ -533,7 +535,7 @@ def month_view(request):
                     "color": p.get("color"),
                     "font_size": int(p.get("font_size", 16) or 16),
                 }
-                for p in (settings.CAL_SOURCES or [])
+                for p in (srcs or [])
             ],
         },
     )
@@ -602,7 +604,7 @@ def week_view(request):
                     "color": p.get("color"),
                     "font_size": int(p.get("font_size", 16) or 16),
                 }
-                for p in (settings.CAL_SOURCES or [])
+                for p in (srcs or [])
             ],
         },
     )
@@ -616,7 +618,8 @@ def debug_view(request):
     start, end = _month_bounds(y, m)
 
     report = []
-    for person in (settings.CAL_SOURCES or []):
+    srcs = _read_cal_sources()
+    for person in (srcs or []):
         entry = {
             "name": person.get("name"),
             "url": person.get("ics_url"),
@@ -646,6 +649,74 @@ def debug_view(request):
             "start": start.isoformat(),
             "end": end.isoformat(),
             "sources": report,
+        },
+        json_dumps_params={"indent": 2},
+    )
+
+
+# --- DEBUG: Return all expanded events for a week ---
+@require_GET
+def debug_week_view(request):
+    """
+    Debug endpoint: return all expanded events for the week containing the given
+    anchor date (y, m, d). This lets us compare what the backend sees with what
+    the week card renders.
+    """
+    today = datetime.date.today()
+    y = int(request.GET.get("y", today.year))
+    m = int(request.GET.get("m", today.month))
+    d = int(request.GET.get("d", today.day))
+    try:
+        anchor = datetime.date(y, m, d)
+    except Exception:
+        anchor = today
+
+    start, end = _week_bounds(anchor)
+    data = _range_matrix(start, end)
+
+    # Prepare per-source containers keyed by calendar id
+    srcs = _read_cal_sources()
+    id_to_entry = {}
+    for person in (srcs or []):
+        cid = person.get("id")
+        entry = {
+            "id": cid,
+            "name": person.get("name"),
+            "url": person.get("ics_url"),
+            "events": [],
+        }
+        id_to_entry[cid] = entry
+
+    # Walk all events in the week and bucket them by source id
+    for day_key in sorted(data["days"]):
+        for e in data["days"][day_key]:
+            pid = e.get("pid")
+            entry = id_to_entry.get(pid)
+            if not entry:
+                continue
+            entry["events"].append(
+                {
+                    "date": e["date"].isoformat(),
+                    "title": e["title"],
+                    "who": e.get("who"),
+                    "all_day": e.get("all_day"),
+                    "time": e.get("time_label"),
+                    "color": e.get("color"),
+                }
+            )
+
+    # Compute per-source counts and build the output list
+    sources_out = []
+    for cid, entry in id_to_entry.items():
+        entry["count"] = len(entry["events"])
+        sources_out.append(entry)
+
+    return JsonResponse(
+        {
+            "anchor": anchor.isoformat(),
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "sources": sources_out,
         },
         json_dumps_params={"indent": 2},
     )
