@@ -332,63 +332,237 @@ def _expand(cal: Calendar, start: datetime.date, end: datetime.date, person: dic
             dtstart = comp.decoded("dtstart")
             dtend = comp.decoded("dtend") if comp.get("dtend") else dtstart
 
+            # Normalize timezone-aware datetimes to naive local (drop tzinfo) so
+            # we don't mix aware and naive datetimes in rrulestr/between().
+            if isinstance(dtstart, datetime.datetime) and dtstart.tzinfo:
+                dtstart = dtstart.replace(tzinfo=None)
+            if isinstance(dtend, datetime.datetime) and dtend.tzinfo:
+                dtend = dtend.replace(tzinfo=None)
+
             # normalize to date-only for boundaries
             ds = dtstart.date() if isinstance(dtstart, datetime.datetime) else dtstart
             de = dtend.date() if isinstance(dtend, datetime.datetime) else dtend
 
-            # recurrence
-            if comp.get("rrule"):
-                # Build an rrulestr; comp.get('rrule') returns dict of lists (values may be bytes/dates/datetimes)
+            # recurrence / single events
+            rrule_data = comp.get("rrule")
+            rdate_data = comp.get("rdate")
+            exdate_data = comp.get("exdate")
+
+            # Debug logging for Syd's calendar to help understand class recurrences
+            try:
+                if person.get("name") in ("Syd", "Sydney"):
+                    print(
+                        "[DayBuddy][Syd DEBUG]",
+                        "summary=", summary,
+                        "dtstart=", dtstart,
+                        "rrule_keys=", list(rrule_data.keys()) if rrule_data else None,
+                        "has_rdate=", bool(rdate_data),
+                        "has_exdate=", bool(exdate_data),
+                    )
+            except Exception:
+                pass
+
+            if rrule_data or rdate_data:
+                # Build full set of occurrence datetimes from RRULE and RDATE, then
+                # subtract EXDATEs. This helps us match what Google shows for
+                # school schedules and other complex repeats.
+                import datetime as _dt
+
                 def _fmt_rr_val(val):
-                    import datetime as _dt
+                    """Normalize RRULE values into a dateutil-friendly string.
+
+                    We deliberately strip timezone info from datetimes so that DTSTART
+                    (which we pass in as naive) and UNTIL/other fields are all naive
+                    as well. This avoids the "UNTIL/DTSTART must have the same
+                    timezone" errors from dateutil.
+                    """
                     # icalendar may yield bytes, strings, dates, or datetimes (e.g., UNTIL)
                     if isinstance(val, bytes):
-                        return val.decode('utf-8')
+                        return val.decode("utf-8")
                     if isinstance(val, _dt.datetime):
-                        # Convert to UTC Zulu if tz-aware; otherwise format as local naive
-                        if val.tzinfo:
-                            val = val.astimezone(_dt.timezone.utc).replace(tzinfo=None)
-                            return val.strftime('%Y%m%dT%H%M%SZ')
-                        return val.strftime('%Y%m%dT%H%M%S')
+                        # Drop tzinfo so everything is naive (local) for dateutil
+                        if val.tzinfo is not None:
+                            val = val.replace(tzinfo=None)
+                        return val.strftime("%Y%m%dT%H%M%S")
                     if isinstance(val, _dt.date):
-                        return val.strftime('%Y%m%d')
+                        return val.strftime("%Y%m%d")
                     return str(val)
-    
-                parts = []
-                for k, vlist in comp.get("rrule").items():
-                    vals = ",".join(_fmt_rr_val(v) for v in vlist if v is not None)
-                    parts.append(f"{k}={vals}")
-                rule_str = "\n".join(parts)
-                rule = rrulestr(
-                    rule_str,
-                    dtstart=(
-                        dtstart
-                        if isinstance(dtstart, datetime.datetime)
-                        else datetime.datetime.combine(ds, datetime.time.min)
-                    ),
-                )
-                for occ in rule.between(
-                    datetime.datetime.combine(start, datetime.time.min),
-                    datetime.datetime.combine(end, datetime.time.max),
-                    inc=True,
-                ):
+
+                occurrences = []
+
+                # --- RRULE expansion ---
+                if rrule_data:
+                    # rrule_data is a dict-like mapping (e.g. {'FREQ': ['WEEKLY'], 'BYDAY': ['MO', 'WE']}).
+                    # Keys may come through as upper- or lower-case, so we normalize
+                    # to upper-case and make sure a FREQ is present.
+                    freq_key = None
+                    for k in rrule_data.keys():
+                        if str(k).upper() == "FREQ":
+                            freq_key = k
+                            break
+                    if freq_key is None:
+                        # Malformed RRULE; skip expansion for this component
+                        print(f"[DayBuddy] Skipping malformed RRULE (no FREQ) for {person.get('name')} summary={summary!r}")
+                    else:
+                        parts = []
+                        for k, vlist in rrule_data.items():
+                            key = str(k).upper()
+                            vals = ",".join(_fmt_rr_val(v) for v in vlist if v is not None)
+                            if not vals:
+                                continue
+                            parts.append(f"{key}={vals}")
+                        # Join with semicolons so dateutil.rrule.rrulestr parses correctly
+                        rule_str = ";".join(parts)
+                        try:
+                            rule = rrulestr(
+                                rule_str,
+                                dtstart=(
+                                    dtstart
+                                    if isinstance(dtstart, _dt.datetime)
+                                    else _dt.datetime.combine(ds, _dt.time.min)
+                                ),
+                            )
+                            for occ in rule.between(
+                                _dt.datetime.combine(start, _dt.time.min),
+                                _dt.datetime.combine(end, _dt.time.max),
+                                inc=True,
+                            ):
+                                occurrences.append(occ)
+                        except Exception as _e:
+                            print(f"[DayBuddy] RRULE parse error for {person.get('name')} summary={summary!r}: {rule_str!r} -> {_e}")
+
+                # --- RDATE explicit dates ---
+                def _extract_rdates(val):
+                    out = []
+                    if not val:
+                        return out
+                    # icalendar often gives RDATE as a vDDDLists with .dts
+                    try:
+                        dts = getattr(val, "dts", None)
+                        if dts is not None:
+                            for v in dts:
+                                dtv = getattr(v, "dt", v)
+                                if isinstance(dtv, _dt.datetime) and dtv.tzinfo:
+                                    dtv = dtv.replace(tzinfo=None)
+                                out.append(dtv)
+                            return out
+                    except Exception:
+                        pass
+                    # or as a list of such objects
+                    if isinstance(val, (list, tuple)):
+                        for item in val:
+                            try:
+                                dts = getattr(item, "dts", None)
+                                if dts is not None:
+                                    for v in dts:
+                                        dtv = getattr(v, "dt", v)
+                                        if isinstance(dtv, _dt.datetime) and dtv.tzinfo:
+                                            dtv = dtv.replace(tzinfo=None)
+                                        out.append(dtv)
+                                else:
+                                    dtv = getattr(item, "dt", item)
+                                    if isinstance(dtv, _dt.datetime) and dtv.tzinfo:
+                                        dtv = dtv.replace(tzinfo=None)
+                                    out.append(dtv)
+                            except Exception:
+                                out.append(item)
+                    else:
+                        dtv = getattr(val, "dt", val)
+                        if isinstance(dtv, _dt.datetime) and dtv.tzinfo:
+                            dtv = dtv.replace(tzinfo=None)
+                        out.append(dtv)
+                    return out
+
+                if rdate_data:
+                    for rdt in _extract_rdates(rdate_data):
+                        # Normalize to datetime and apply the original time-of-day when needed
+                        if isinstance(rdt, _dt.date) and not isinstance(rdt, _dt.datetime):
+                            if isinstance(dtstart, _dt.datetime):
+                                rdt = _dt.datetime.combine(rdt, dtstart.timetz() if dtstart.tzinfo else dtstart.time())
+                            else:
+                                rdt = _dt.datetime.combine(rdt, _dt.time.min)
+                        occurrences.append(rdt)
+
+                # --- EXDATE exclusions ---
+                def _extract_exdates(val):
+                    out = []
+                    if not val:
+                        return out
+                    try:
+                        dts = getattr(val, "dts", None)
+                        if dts is not None:
+                            for v in dts:
+                                dtv = getattr(v, "dt", v)
+                                if isinstance(dtv, _dt.datetime) and dtv.tzinfo:
+                                    dtv = dtv.replace(tzinfo=None)
+                                out.append(dtv)
+                            return out
+                    except Exception:
+                        pass
+                    if isinstance(val, (list, tuple)):
+                        for item in val:
+                            try:
+                                dts = getattr(item, "dts", None)
+                                if dts is not None:
+                                    for v in dts:
+                                        dtv = getattr(v, "dt", v)
+                                        if isinstance(dtv, _dt.datetime) and dtv.tzinfo:
+                                            dtv = dtv.replace(tzinfo=None)
+                                        out.append(dtv)
+                                else:
+                                    dtv = getattr(item, "dt", item)
+                                    if isinstance(dtv, _dt.datetime) and dtv.tzinfo:
+                                        dtv = dtv.replace(tzinfo=None)
+                                    out.append(dtv)
+                            except Exception:
+                                out.append(item)
+                    else:
+                        dtv = getattr(val, "dt", val)
+                        if isinstance(dtv, _dt.datetime) and dtv.tzinfo:
+                            dtv = dtv.replace(tzinfo=None)
+                        out.append(dtv)
+                    return out
+
+                exdates = set()
+                if exdate_data:
+                    for ex in _extract_exdates(exdate_data):
+                        if isinstance(ex, _dt.datetime):
+                            exdates.add(ex)
+                        elif isinstance(ex, _dt.date):
+                            exdates.add(_dt.datetime.combine(ex, _dt.time.min))
+
+                # Deduplicate and apply exclusions
+                seen = set()
+                for occ in occurrences:
+                    if isinstance(occ, _dt.date) and not isinstance(occ, _dt.datetime):
+                        occ_dt = _dt.datetime.combine(occ, _dt.time.min)
+                    else:
+                        occ_dt = occ
+                    if occ_dt in exdates:
+                        continue
+                    if occ_dt in seen:
+                        continue
+                    seen.add(occ_dt)
+
                     evts.append(
                         dict(
                             pid=person.get("id"),
                             who=person.get("name"),
                             color=person.get("color"),
-                            date=occ.date(),
-                            all_day=not isinstance(dtstart, datetime.datetime),
+                            date=occ_dt.date(),
+                            all_day=not isinstance(dtstart, _dt.datetime),
                             time_label=(
-                                occ.strftime("%-I:%M%p").lower()
-                                if isinstance(dtstart, datetime.datetime)
+                                occ_dt.strftime("%-I:%M%p").lower()
+                                if isinstance(dtstart, _dt.datetime)
                                 else ""
                             ),
                             title=summary,
                         )
                     )
+
             else:
-                # slice multi-day across each day (ICS often has exclusive dtend for all-day)
+                # Non-recurring: slice multi-day across each day (ICS often has
+                # exclusive dtend for all-day).
                 cur = max(start, ds)
                 last = min(end, de if de > ds else ds)
                 while cur <= last:
