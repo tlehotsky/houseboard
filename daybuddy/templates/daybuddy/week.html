@@ -1016,7 +1016,7 @@ loadWeather();
     }
   }
 
-  async function loadOne() {
+  async function loadOne(attempt = 0) {
     try{
       const res = await fetch('/houseboard/daybuddy/photos/random', {cache:'no-store'});
       if(!res.ok) throw new Error('random fetch failed');
@@ -1026,6 +1026,14 @@ loadWeather();
         currentId = null;
         return;
       }
+
+      // If we got the same photo again and we have more than one image
+      // on the backend, retry a couple of times to avoid appearing "stuck".
+      if (currentId && j.id && j.id === currentId && attempt < 3) {
+        console.debug('Same photo as current, retrying...', attempt);
+        return loadOne(attempt + 1);
+      }
+
       currentId = j.id || null;
       const url = j.url + '?v=' + Date.now(); // cache-bust
       // fade out, swap, fade in
