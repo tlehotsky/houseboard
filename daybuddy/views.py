@@ -9,7 +9,8 @@ from functools import lru_cache
 from django.conf import settings
 import json as _json
 from pathlib import Path as _Path
-CAL_SOURCES_PATH = _Path('/etc/houseboard_cal_sources.json')
+APP_ROOT = _Path(__file__).resolve().parent
+CAL_SOURCES_PATH = APP_ROOT / 'cal_sources.json'
 
 def _read_cal_sources():
     try:

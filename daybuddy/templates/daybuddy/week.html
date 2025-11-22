@@ -297,8 +297,7 @@ body::after{
           {% if not e.all_day %}
             {% if e.title or e.time_label %}
               <div class="evt" data-start="{{ e.time_label|default:'' }}" data-end="{{ e.end_time_label|default:'' }}" style="--c:{{e.color}};--sz:{{ e.font_size|default:16 }}px">
-                {% if e.time_label %}<b>{{ e.time_label }}</b>{% endif %}
-                <span>{{ e.who }}{% if e.title %}: {{ e.title }}{% endif %}</span>
+                <span>{% if e.title %}{{ e.title }}{% endif %}</span>
               </div>
             {% endif %}
           {% endif %}
