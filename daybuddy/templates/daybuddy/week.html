@@ -3,6 +3,7 @@
 <style>
 /* ---- Base --------------------------------------------------------------- */
 body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
+.wrap h1{margin:0 0 2px 0}
 /* Inset border around the entire viewport */
 body::after{
   content:"";
@@ -186,23 +187,26 @@ body::after{
 .cell-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
 .allbar{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;overflow:hidden}
 /* ---- Events ------------------------------------------------------------- */
-.evt{
-  color:#e8ecf3;                /* crisp event text */
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  background: var(--c);
-  color:#fff;
-  border-radius:6px;
-  padding:2px 8px;
-  margin:.18rem 0;
-  font-size: var(--sz, 16px);
-  display:flex;                 /* allow inline badges */
-  align-items:flex-start;
-  gap:6px;
-}
+  .evt{
+    color:#e8ecf3;                /* crisp event text */
+    white-space:normal;
+    overflow-wrap:break-word;
+    text-overflow:clip;
+    background: var(--c);
+    color:#fff;
+    border-radius:6px;
+    padding:2px 8px;
+    margin:.18rem 0;
+    font-size: var(--sz, 16px);
+    display:flex;                 /* allow inline badges */
+    align-items:flex-start;
+    gap:6px;
+    overflow:hidden;              /* clip text when it reaches the pill bottom */
+  }
 /* ensure flex children truncate nicely so widths stay uniform */
 .evt{ min-width:0; }
 .evt b{ flex:0 0 auto; }
-.evt span{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; }
+.evt span{ flex:1 1 auto; min-width:0; overflow:hidden; white-space:normal; overflow-wrap:break-word; display:block; }
 /* all‑day or multi‑day highlight tint for readability on dark ui */
 .all{
   background: var(--c);
@@ -273,7 +277,10 @@ body::after{
 <div class="wrap">
   {{ people|json_script:"people-data" }}
   <h1>DayBuddy – Week View</h1>
-  <h3 style="text-align:center;opacity:.8;margin-top:12px;margin-bottom:4px;font-weight:600;">Week Legend</h3>
+  <div id="updated-at" style="text-align:left;opacity:.65;font-size:13px;margin-top:0;">
+    Updated at —
+  </div>
+  <h3 style="text-align:center;opacity:.8;margin-top:12px;margin-bottom:4px;font-weight:600;">Week Legend V25</h3>
   <div class="legend">
     {% for p in people %}<span class="pill" style="--c:{{p.color}}">{{p.name}}</span>{% endfor %}
   </div>
@@ -381,6 +388,16 @@ function goDate(y,m,d){
 }
 
 const now = new Date();
+
+// Show a small "Updated at" line under the heading
+(function(){
+  const el = document.getElementById('updated-at');
+  if (!el) return;
+  const opts = { hour: 'numeric', minute: '2-digit', hour12: true };
+  const t = now.toLocaleTimeString([], opts);
+  el.textContent = `Updated at ${t}`;
+})();
+
 function getAnchor(){
   const u = new URL(location);
   const yy = parseInt(u.searchParams.get('y') || now.getFullYear());
@@ -622,7 +639,7 @@ saveBtn.addEventListener('click', async () => {
 });
 
 // ---- Weather: 07701 (Red Bank, NJ) --------------------------------------
-(async function loadWeather(){
+async function loadWeather(){
   try{
     const LAT = 40.35, LON = -74.07; // Red Bank approx
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=temperature_2m,precipitation_probability&daily=sunrise,sunset&current=temperature_2m&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=10`;
@@ -965,7 +982,10 @@ saveBtn.addEventListener('click', async () => {
     const nowEl = document.getElementById('now-temp');
     if(nowEl) nowEl.textContent = 'N/A';
   }
-})();
+}
+
+// initial weather load
+loadWeather();
 // --- Simple slideshow ---
 (function(){
   const IMG = document.getElementById('slide-img');
@@ -975,6 +995,26 @@ saveBtn.addEventListener('click', async () => {
 
   let timer = null;
   let currentId = null;
+
+  // Helper to refresh all cards when a new photo loads
+  async function refreshAllCards(){
+    try{
+      await Promise.all([
+        loadWeather(),
+        loadRangersSchedule(),
+        loadNFLSchedule(),
+      ]);
+    } catch(e) {
+      console.error('refreshAllCards failed', e);
+    }
+    // Update the "Updated at" timestamp after all cards refresh
+    const ua = document.getElementById('updated-at');
+    if (ua) {
+      const now2 = new Date();
+      const opts2 = { hour: 'numeric', minute: '2-digit', hour12: true };
+      ua.textContent = `Updated at ${now2.toLocaleTimeString([], opts2)}`;
+    }
+  }
 
   async function loadOne() {
     try{
@@ -1024,6 +1064,9 @@ saveBtn.addEventListener('click', async () => {
       }
 
       META.textContent = label || 'Photo';
+
+      // After updating the photo, refresh the other dashboard cards
+      refreshAllCards();
     }catch(e){
       console.error(e);
       if(META) META.textContent = 'No photos available';
@@ -1072,7 +1115,7 @@ saveBtn.addEventListener('click', async () => {
 })();
 
 // --- Rangers schedule card ---
-(async function loadRangersSchedule(){
+async function loadRangersSchedule(){
   const box = document.getElementById('rangers-sched');
   if (!box) return;
 
@@ -1148,10 +1191,13 @@ saveBtn.addEventListener('click', async () => {
     console.error('Rangers schedule error:', e);
     box.textContent = 'Schedule unavailable.';
   }
-})();
+}
+
+// initial Rangers load
+loadRangersSchedule();
 
 // --- NFL schedule card as 7‑day grid ---
-(async function loadNFLSchedule(){
+async function loadNFLSchedule(){
   const box = document.getElementById('nfl-sched');
   if (!box) return;
 
@@ -1221,5 +1267,8 @@ saveBtn.addEventListener('click', async () => {
     console.error('NFL schedule error:', e);
     box.textContent = 'Schedule unavailable.';
   }
-})();
+}
+
+// initial NFL load
+loadNFLSchedule();
 </script>
