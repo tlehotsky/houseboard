@@ -186,23 +186,26 @@ body::after{
 .cell-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
 .allbar{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;overflow:hidden}
 /* ---- Events ------------------------------------------------------------- */
-.evt{
-  color:#e8ecf3;                /* crisp event text */
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  background: var(--c);
-  color:#fff;
-  border-radius:6px;
-  padding:2px 8px;
-  margin:.18rem 0;
-  font-size: var(--sz, 16px);
-  display:flex;                 /* allow inline badges */
-  align-items:flex-start;
-  gap:6px;
-}
+  .evt{
+    color:#e8ecf3;                /* crisp event text */
+    white-space:normal;
+    overflow-wrap:break-word;
+    text-overflow:clip;
+    background: var(--c);
+    color:#fff;
+    border-radius:6px;
+    padding:2px 8px;
+    margin:.18rem 0;
+    font-size: var(--sz, 16px);
+    display:flex;                 /* allow inline badges */
+    align-items:flex-start;
+    gap:6px;
+    overflow:hidden;              /* clip text when it reaches the pill bottom */
+  }
 /* ensure flex children truncate nicely so widths stay uniform */
 .evt{ min-width:0; }
 .evt b{ flex:0 0 auto; }
-.evt span{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; }
+.evt span{ flex:1 1 auto; min-width:0; overflow:hidden; white-space:normal; overflow-wrap:break-word; display:block; }
 /* all‑day or multi‑day highlight tint for readability on dark ui */
 .all{
   background: var(--c);
