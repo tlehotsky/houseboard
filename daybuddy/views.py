@@ -932,11 +932,10 @@ def rename_calendar(request):
         if not cid or not new_name:
             return JsonResponse({"error": "id and name required"}, status=400)
 
-        path = "/etc/houseboard_cal_sources.json"
-        if not os.path.exists(path):
+        if not CAL_SOURCES_PATH.exists():
             return JsonResponse({"error": "config file not found"}, status=500)
 
-        with open(path, "r") as f:
+        with CAL_SOURCES_PATH.open("r") as f:
             data = json.load(f)
 
         found = False
@@ -952,7 +951,7 @@ def rename_calendar(request):
         if not found:
             return JsonResponse({"error": "id not found"}, status=404)
 
-        with open(path, "w") as f:
+        with CAL_SOURCES_PATH.open("w") as f:
             json.dump(data, f, indent=2)
 
         # refresh in-memory and invalidate cache so UI reflects immediately

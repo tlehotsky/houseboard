@@ -5,6 +5,7 @@ __pycache__/
 db.sqlite3
 .env
 *.log
+**/__pycache__/
 
 # Django stuff
 staticfiles/
@@ -22,12 +23,17 @@ media/
 .DS_Store
 Thumbs.db
 
-# Migrations (optional, if you want to track later)
+# Ignore only migration caches
 */migrations/__pycache__/
-*/migrations/*.py
 
 # Node/Next.js if integrated
 node_modules/
 .next/
 dist/
 cal_sources.json
+
+# Photos / uploads
+photos/
+*/photos/
+daybuddy/photos/
+media/photos/
