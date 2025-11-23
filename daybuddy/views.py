@@ -312,8 +312,11 @@ def _month_bounds(year, month):
     return start, end
 
 def _week_bounds(anchor: datetime.date):
-    """Return (start, end) for the week containing anchor; week starts on Monday."""
-    start = anchor - datetime.timedelta(days=anchor.weekday())
+    """Return (start, end) for the week containing anchor; week starts on Saturday."""
+    # Week starts on Saturday
+    weekday = anchor.weekday()          # Mon=0 ... Sun=6
+    offset = (weekday - 5) % 7          # Saturday = weekday 5
+    start = anchor - datetime.timedelta(days=offset)
     end = start + datetime.timedelta(days=6)
     return start, end
 
