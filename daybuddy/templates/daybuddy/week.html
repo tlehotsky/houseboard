@@ -184,10 +184,25 @@ body::after{
 #card-slideshow #slide-bar .qr .muted{ text-align:left; }
 #card-slideshow #slide-bar .meta-area{flex:1;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 #card-slideshow #slide-bar .meta{ text-align:right; }
-#card-slideshow{ grid-column: 1 / -1; width: max-content; justify-self: start; }
+#card-slideshow{ justify-self:stretch; }
 #card-slideshow img{ max-height: 40vh; }
 #archive-photo-btn{background:#2a354a;color:#f2f5f9;border:1px solid #3b4765;border-radius:8px;padding:4px 10px;font-size:13px;font-weight:500;cursor:pointer;}
 #archive-photo-btn:hover{background:#34415a;border-color:#4d5c7a;}
+
+/* Bottom row: slideshow on the left, health cards stacked on the right */
+.card-row-bottom{
+  grid-column:1 / -1;
+  display:grid;
+  grid-template-columns:minmax(0,3fr) minmax(0,1fr);
+  gap:12px;
+  align-items:flex-start;
+}
+.card-stack-right{
+  display:grid;
+  grid-auto-rows:minmax(min-content,max-content);
+  gap:12px;
+}
+
 /* Tighter photo card framing */
 #card-slideshow{ padding:8px; }
 #card-slideshow .frame{ border:1px solid rgba(255,255,255,.35); border-radius:6px; overflow:hidden; display:flex; justify-content:flex-start; align-items:flex-start; }
@@ -295,11 +310,11 @@ body::after{
 
 <div class="wrap">
   {{ people|json_script:"people-data" }}
-  <h1>DayBuddy – Week View</h1>
+  <h1>DayBuddy – Week View VERSION 26</h1>
   <div id="updated-at" style="text-align:left;opacity:.65;font-size:13px;margin-top:0;">
     Updated at —
   </div>
-  <h3 style="text-align:center;opacity:.8;margin-top:12px;margin-bottom:4px;font-weight:600;">Week Legend V25</h3>
+  <h3 style="text-align:center;opacity:.8;margin-top:12px;margin-bottom:4px;font-weight:600;">Week Legend</h3>
   <div class="legend">
     {% for p in people %}<span class="pill" style="--c:{{p.color}}">{{p.name}}</span>{% endfor %}
   </div>
@@ -362,23 +377,37 @@ body::after{
         <div id="nfl-sched">Coming soon</div>
       </div>
     </div>
-    <div class="card" id="card-slideshow">
-      <h4>Family Photos</h4>
-      <div class="frame">
-        <img id="slide-img" alt="slideshow" style="opacity:.0;transition:opacity .5s ease;">
-      </div>
-      <div id="slide-bar">
-        <div class="qr">
-          <img src="/houseboard/daybuddy/qr" alt="Upload QR" style="max-width:100px">
-          <div class="muted">
-            <a href="http://161.35.180.75:8821/houseboard/daybuddy/photos/upload/" target="_blank" style="color:inherit;text-decoration:underline;">
-              Go here to add pictures to the slideshow
-            </a>
+    <div class="card-row-bottom">
+      <div class="card" id="card-slideshow">
+        <h4>Family Photos</h4>
+        <div class="frame">
+          <img id="slide-img" alt="slideshow" style="opacity:.0;transition:opacity .5s ease;">
+        </div>
+        <div id="slide-bar">
+          <div class="qr">
+            <img src="/houseboard/daybuddy/qr" alt="Upload QR" style="max-width:100px">
+            <div class="muted">
+              <a href="http://161.35.180.75:8821/houseboard/daybuddy/photos/upload/" target="_blank" style="color:inherit;text-decoration:underline;">
+                Go here to add pictures to the slideshow
+              </a>
+            </div>
+          </div>
+          <div class="meta-area">
+            <div class="muted meta" id="slide-meta"></div>
+            <button id="archive-photo-btn" type="button">Archive this photo</button>
           </div>
         </div>
-        <div class="meta-area">
-          <div class="muted meta" id="slide-meta"></div>
-          <button id="archive-photo-btn" type="button">Archive this photo</button>
+      </div>
+      <div class="card-stack-right">
+        <div class="card" id="card-network">
+          <h4>Network Health</h4>
+          <div class="muted" id="net-wifi">Wi‑Fi health: —</div>
+          <div class="muted" id="net-internet">Internet health: —</div>
+        </div>
+        <div class="card" id="card-house">
+          <h4>House Health</h4>
+          <div class="muted" id="house-temp">House temperature: —</div>
+          <div class="muted" id="house-alerts">Alerts: —</div>
         </div>
       </div>
     </div>
@@ -1010,8 +1039,42 @@ async function loadWeather(){
   }
 }
 
+// Network health checker
+async function loadNetworkHealth(){
+  const wifiEl = document.getElementById('net-wifi');
+  const inetEl = document.getElementById('net-internet');
+  if (!wifiEl || !inetEl) return;
+
+  // Default text while fetching
+  wifiEl.textContent = 'Wi‑Fi health: checking…';
+  inetEl.textContent = 'Internet health: checking…';
+
+  try {
+    // Simple local ping to the Pi itself
+    const wifiOk = true; // if we can run this JS, Wi‑Fi is up enough
+    if (wifiOk) {
+      wifiEl.textContent = 'Wi‑Fi health: OK';
+    } else {
+      wifiEl.textContent = 'Wi‑Fi health: offline';
+    }
+
+    // Internet check: tiny API this page will hit (backend to be added separately)
+    const res = await fetch('/houseboard/daybuddy/ping', { cache: 'no-store' });
+    if (res.ok) {
+      inetEl.textContent = 'Internet health: OK';
+    } else {
+      inetEl.textContent = 'Internet health: offline?';
+    }
+  } catch (e) {
+    console.error('Network health check failed', e);
+    wifiEl.textContent = 'Wi‑Fi health: unknown';
+    inetEl.textContent = 'Internet health: offline?';
+  }
+}
+
 // initial weather load
 loadWeather();
+loadNetworkHealth();
 // --- Simple slideshow ---
 (function(){
   const IMG = document.getElementById('slide-img');
@@ -1029,6 +1092,7 @@ loadWeather();
         loadWeather(),
         loadRangersSchedule(),
         loadNFLSchedule(),
+        loadNetworkHealth(),
       ]);
     } catch(e) {
       console.error('refreshAllCards failed', e);

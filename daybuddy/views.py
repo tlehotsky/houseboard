@@ -40,6 +40,11 @@ PHOTOS_ROOT = Path("/srv/daybuddy/photos")
 READY_ROOT  = PHOTOS_ROOT / "ready"
 DB_PATH     = PHOTOS_ROOT / "index.sqlite3"
 
+# Status/health JSON files (updated out-of-band)
+STATUS_ROOT = Path("/srv/daybuddy/status")
+NETWORK_STATUS_PATH = STATUS_ROOT / "network.json"
+HOUSE_STATUS_PATH = STATUS_ROOT / "house.json"
+
 # Static assets path for the always-visible upload QR code
 STATIC_DIR = Path("/srv/daybuddy/static")
 QR_PATH = STATIC_DIR / "daybuddy_upload_qr.png"
@@ -50,6 +55,74 @@ UPLOAD_PIN = os.environ.get("DAYBUDDY_UPLOAD_PIN", getattr(settings, "DAYBUDDY_U
 
 # Keep a small ring buffer of recently shown ids to reduce repeats
 RECENT_IDS = deque(maxlen=200)
+
+
+# --- Status/health helpers ---
+def _load_status_json(path: Path):
+    """
+    Best-effort load of a small JSON status file. Returns {} on any error.
+    This is intended to be updated out-of-band by a script on the Pi or
+    elsewhere (e.g., a cron job that writes Wi-Fi and internet health).
+    """
+    try:
+        if path.exists():
+            return _json.loads(path.read_text())
+    except Exception:
+        pass
+    return {}
+
+
+def get_network_health():
+    """
+    Return a simple dict describing network health so the template can render
+    the Network Health card.
+
+    Expected JSON structure at NETWORK_STATUS_PATH (all keys optional):
+
+      {
+        "wifi_status": "ok|degraded|down",
+        "wifi_detail": "Some human-friendly description",
+        "internet_status": "ok|degraded|down",
+        "internet_detail": "Description of internet connectivity",
+        "latency_ms": 42,
+        "updated_at": "2025-11-23T15:04:05"
+      }
+    """
+    data = _load_status_json(NETWORK_STATUS_PATH)
+    return {
+        "wifi_status": data.get("wifi_status", "unknown"),
+        "wifi_detail": data.get("wifi_detail", ""),
+        "internet_status": data.get("internet_status", "unknown"),
+        "internet_detail": data.get("internet_detail", ""),
+        "latency_ms": data.get("latency_ms"),
+        "updated_at": data.get("updated_at"),
+    }
+
+
+def get_house_health():
+    """
+    Return a simple dict describing house health (HVAC, temps, etc.) so the
+    template can render the House Health card.
+
+    Expected JSON at HOUSE_STATUS_PATH (all keys optional), for example:
+
+      {
+        "overall_status": "ok|alert",
+        "overall_detail": "Summary line",
+        "zones": [
+          {"name": "Living Room", "temp_f": 70.5, "status": "ok"},
+          {"name": "Upstairs", "temp_f": 68.2, "status": "cooling"}
+        ],
+        "updated_at": "2025-11-23T15:04:05"
+      }
+    """
+    data = _load_status_json(HOUSE_STATUS_PATH)
+    return {
+        "overall_status": data.get("overall_status", "unknown"),
+        "overall_detail": data.get("overall_detail", ""),
+        "zones": data.get("zones", []),
+        "updated_at": data.get("updated_at"),
+    }
 
 
 # Helper: cache reverse geocode (lat, lon) -> city, state using Nominatim
@@ -821,6 +894,8 @@ def week_view(request):
             "start": start,
             "end": end,
             "cells": cells,
+            "network_health": get_network_health(),
+            "house_health": get_house_health(),
             "people": [
                 {
                     "id": p.get("id"),
