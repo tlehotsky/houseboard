@@ -1050,21 +1050,24 @@ async function loadNetworkHealth(){
   inetEl.textContent = 'Internet health: checking…';
 
   try {
-    // Simple local ping to the Pi itself
-    const wifiOk = true; // if we can run this JS, Wi‑Fi is up enough
-    if (wifiOk) {
-      wifiEl.textContent = 'Wi‑Fi health: OK';
-    } else {
-      wifiEl.textContent = 'Wi‑Fi health: offline';
+    // Call the local Pi health server that you set up on port 8787
+    const res = await fetch('http://127.0.0.1:8787/network', { cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error('wifi_health HTTP ' + res.status);
     }
 
-    // Internet check: tiny API this page will hit (backend to be added separately)
-    const res = await fetch('/houseboard/daybuddy/ping', { cache: 'no-store' });
-    if (res.ok) {
-      inetEl.textContent = 'Internet health: OK';
-    } else {
-      inetEl.textContent = 'Internet health: offline?';
-    }
+    const j = await res.json();
+
+    const wifiStatus = j.wifi_status || 'unknown';
+    const wifiDetail = j.wifi_detail || '';
+    const internetStatus = j.internet_status || 'unknown';
+    const internetDetail = j.internet_detail || '';
+    const latency = (typeof j.latency_ms === 'number')
+      ? `${j.latency_ms.toFixed(1)} ms`
+      : '';
+
+    wifiEl.textContent = 'Wi‑Fi health: ' + (wifiDetail || wifiStatus);
+    inetEl.textContent = 'Internet health: ' + (internetDetail || internetStatus) + (latency ? ` (${latency})` : '');
   } catch (e) {
     console.error('Network health check failed', e);
     wifiEl.textContent = 'Wi‑Fi health: unknown';
