@@ -264,7 +264,12 @@ def nfl_schedule(request):
             if dt_obj is None:
                 continue
 
-            date_obj = dt_obj.date()
+            # Treat CSV times as UTC and convert to a rough US/Eastern local
+            # time for display-slot classification. This makes the front-end
+            # color codes (morning/afternoon/evening) line up more closely with
+            # when games actually kick off for you.
+            local_dt = dt_obj - datetime.timedelta(hours=5)
+            date_obj = local_dt.date()
 
             # Only keep games in the next 7 calendar days (including today)
             if not (today <= date_obj <= end):
@@ -279,24 +284,65 @@ def nfl_schedule(request):
             date_label = date_obj.strftime("%b %-d")   # e.g. Nov 15
             day_label = date_obj.strftime("%a")        # e.g. Sat
 
+            # Compute a simple "slot" for color-coding on the front end based
+            # on the local (US/Eastern-ish) hour:
+            #  - morning (blue):   < 14:00
+            #  - afternoon (yellow): 14:00–17:59
+            #  - evening (red):   >= 18:00
+            local_hour = local_dt.hour
+            # Blue: games starting before 2pm
+            if local_hour < 14:
+                slot = "morning"
+            # Yellow: 2pm to before 6pm
+            elif local_hour < 18:
+                slot = "afternoon"
+            # Red: 6pm and later
+            else:
+                slot = "evening"
+
             games_out.append(
                 {
                     "date": date_obj.isoformat(),
                     "date_label": date_label,
                     "day_label": day_label,
-                    # keep time_label empty for a very simple display
+                    # keep time_label empty so we don't clutter the narrow tiles
                     "time_label": "",
                     # no explicit home/away tag; the matchup label is enough
                     "home_away": "",
                     "opponent": matchup,
                     "status": first(row, "Result", "Status", "status"),
+                    "slot": slot,
                 }
             )
 
+    # Ensure we emit at least one entry per calendar day in the 7‑day window.
+    # For days with no actual games, we add a synthetic "No games" row so the
+    # frontend can still render a tile labeled for that date.
+    existing_dates = {g["date"] for g in games_out}
+    day = today
+    while day <= end:
+        iso = day.isoformat()
+        if iso not in existing_dates:
+            date_label = day.strftime("%b %-d")   # e.g. Nov 15
+            day_label = day.strftime("%a")        # e.g. Sat
+            games_out.append(
+                {
+                    "date": iso,
+                    "date_label": date_label,
+                    "day_label": day_label,
+                    "time_label": "",
+                    "home_away": "",
+                    "opponent": "No games",
+                    "status": "",
+                    # Special slot for styling a neutral/no‑game entry;
+                    # the frontend can treat this like a normal game row.
+                    "slot": "none",
+                }
+            )
+        day += datetime.timedelta(days=1)
     games_out.sort(key=lambda g: (g["date"], g["opponent"] or ""))
 
     return JsonResponse({"games": games_out})
-
 
 def healthz(_request):
     return HttpResponse("ok")

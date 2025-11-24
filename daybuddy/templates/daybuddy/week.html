@@ -122,7 +122,14 @@ body::after{
   font-size:12px;
   opacity:.55;
 }
-/* NFL schedule card as 7‑day row with auto-width tiles */
+
+
+
+
+
+/* NFL schedule card as 7-day#card-slideshow #slide-bar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:6px}
+
+/* NFL schedule card as 7-day row with auto-width tiles */
 #card-nfl #nfl-sched{
   margin-top:6px;
 }
@@ -159,7 +166,19 @@ body::after{
   font-size:12px;
   opacity:.55;
 }
-#card-slideshow #slide-bar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:6px}
+
+/* Slot-based time coloring (blue = morning, yellow = afternoon, red = evening) */
+.nfl-day .game.morning{
+  color:#7fb6ff;             /* soft blue text for morning games */
+}
+.nfl-day .game.afternoon{
+  color:#ffe48a;             /* warm yellow text for afternoon games */
+}
+.nfl-day .game.evening{
+  color:#ff9b9b;             /* light red text for evening games */
+}
+
+
 #card-slideshow #slide-bar .qr img{display:block;width:auto;height:auto;max-width:100px}
 #card-slideshow #slide-bar .qr{ text-align:left; }
 #card-slideshow #slide-bar .qr .muted{ text-align:left; }
@@ -1204,76 +1223,80 @@ async function loadRangersSchedule(){
 // initial Rangers load
 loadRangersSchedule();
 
-// --- NFL schedule card as 7‑day grid ---
+
+
 async function loadNFLSchedule(){
-  const box = document.getElementById('nfl-sched');
-  if (!box) return;
-
-  try {
-    const res = await fetch('/houseboard/daybuddy/nfl/schedule', { cache: 'no-store' });
-    if (!res.ok) throw new Error('NFL schedule HTTP ' + res.status);
-
+  try{
+    const res = await fetch('/houseboard/daybuddy/nfl/schedule', {cache:'no-store'});
+    if(!res.ok) throw new Error('NFL schedule fetch failed');
     const data = await res.json();
+
+    const host = document.getElementById('nfl-sched');
+    if(!host) return;
+
     const games = Array.isArray(data.games) ? data.games : [];
-
-    // Map games by ISO date string (YYYY-MM-DD)
-    const byDate = new Map();
-    games.forEach(g => {
-      const iso = g.date || '';
-      if (!iso) return;
-      if (!byDate.has(iso)) byDate.set(iso, []);
-      byDate.get(iso).push(g);
-    });
-
-    // Build 7 calendar days starting from today (local)
-    const today = new Date();
-    today.setHours(0,0,0,0);
-
-    const grid = document.createElement('div');
-    grid.id = 'nfl-grid';
-
-    const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      const iso = `${year}-${month}-${day}`;
-
-      const cell = document.createElement('div');
-      cell.className = 'nfl-day';
-
-      const head = document.createElement('div');
-      head.className = 'day-label';
-      head.textContent = `${DOW[d.getDay()]} ${month}/${day}`;
-      cell.appendChild(head);
-
-      const dayGames = byDate.get(iso) || [];
-      if (dayGames.length === 0) {
-        const span = document.createElement('div');
-        span.className = 'nogame';
-        span.textContent = 'No game';
-        cell.appendChild(span);
-      } else {
-        dayGames.forEach(g => {
-          const matchup = g.opponent || '';
-          const line = document.createElement('div');
-          line.className = 'game';
-          line.textContent = matchup; // e.g. "Chiefs vs Bills"
-          cell.appendChild(line);
-        });
-      }
-
-      grid.appendChild(cell);
+    if(!games.length){
+      host.textContent = 'No NFL games in the next 7 days.';
+      return;
     }
 
-    box.innerHTML = '';
-    box.appendChild(grid);
-  } catch (e) {
-    console.error('NFL schedule error:', e);
-    box.textContent = 'Schedule unavailable.';
+    // Group games by date string
+    const byDate = {};
+    for(const g of games){
+      const key = g.date || g.date_label || 'unknown';
+      if(!byDate[key]) byDate[key] = { meta: g, list: [] };
+      byDate[key].list.push(g);
+    }
+
+    const days = Object.values(byDate).sort((a, b) => {
+      const da = a.meta.date || '';
+      const db = b.meta.date || '';
+      if (da < db) return -1;
+      if (da > db) return 1;
+      return 0;
+    });
+
+    // Build the 7-day strip
+    const parts = [];
+    for (const day of days) {
+      const meta = day.meta;
+      parts.push('<div class="nfl-day">');
+      parts.push(
+        `<div class="day-label">${meta.day_label || ''} ${meta.date_label || ''}</div>`
+      );
+
+      if (!day.list.length) {
+        parts.push('<div class="nogame">No game</div>');
+      } else {
+        // Sort by slot so that morning (blue) games come first,
+        // afternoon (yellow) second, and evening (red) last.
+        const ordered = [...day.list].sort((a, b) => {
+          const order = { morning: 0, afternoon: 1, evening: 2 };
+          const sa = order[a.slot] ?? 3;
+          const sb = order[b.slot] ?? 3;
+          if (sa !== sb) return sa - sb;
+          // As a tie-breaker, keep original relative order if slots match.
+          return 0;
+        });
+
+        for (const g of ordered) {
+          const slotClass = g.slot ? ` ${g.slot}` : '';
+          const opp = g.opponent || '';
+          const status = g.status ? ` (${g.status})` : '';
+          parts.push(
+            `<div class="game${slotClass}">${opp}${status}</div>`
+          );
+        }
+      }
+
+      parts.push('</div>');
+    }
+
+    host.innerHTML = `<div id="nfl-grid">${parts.join('')}</div>`;
+  }catch(e){
+    console.error(e);
+    const host = document.getElementById('nfl-sched');
+    if(host) host.textContent = 'NFL schedule unavailable';
   }
 }
 
