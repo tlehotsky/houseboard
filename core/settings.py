@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 ]
 
-INSTALLED_APPS += ["daybuddy", "hms", "security"]
+INSTALLED_APPS += ["daybuddy", "hms", "security", "temps",]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

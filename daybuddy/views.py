@@ -5,7 +5,7 @@ from django.views.decorators.http import require_GET
 import calendar, datetime, csv
 from collections import defaultdict
 from functools import lru_cache
-
+import math
 from django.conf import settings
 import json as _json
 from pathlib import Path as _Path
@@ -124,49 +124,73 @@ def get_house_health():
         "updated_at": data.get("updated_at"),
     }
 
-
-# Helper: cache reverse geocode (lat, lon) -> city, state using Nominatim
-@lru_cache(maxsize=512)
-def _reverse_city_state(lat_rounded, lon_rounded):
+@require_GET
+def house_temps(request):
     """
-    Best-effort reverse geocode (lat, lon) -> 'City, State' using Nominatim.
-    lat_rounded and lon_rounded should be short floats (e.g., rounded to 4 decimals)
-    so the cache can be effective.
+    Small JSON API so the House Health card in week.html can load room temps
+    from the droplet.
+
+    It adapts the status JSON from get_house_health() into a simple:
+      {
+        "rooms": [
+          {"room": "Kitchen", "temp_f": 71.2},
+          ...
+        ],
+        "updated_at": "2025-11-23T15:04:05"
+      }
     """
     try:
-        url = "https://nominatim.openstreetmap.org/reverse"
-        params = {
-            "format": "jsonv2",
-            "lat": str(lat_rounded),
-            "lon": str(lon_rounded),
-            "zoom": "10",
-            "addressdetails": "1",
-        }
-        headers = {
-            "User-Agent": "daybuddy/1.0 (+https://example.com)"
-        }
-        resp = requests.get(url, params=params, headers=headers, timeout=3)
-        if not resp.ok:
-            return None
-        data = resp.json()
-        addr = data.get("address", {}) or {}
-        city = (
-            addr.get("city")
-            or addr.get("town")
-            or addr.get("village")
-            or addr.get("hamlet")
+        hh = get_house_health()
+        zones = hh.get("zones") or []
+
+        rooms = []
+        for z in zones:
+            name = z.get("name") or z.get("room") or "Room"
+
+            raw_temp_f = z.get("temp_f")
+            raw_temp_c = z.get("temp_c")
+
+            temp_f = None
+
+            # Prefer an explicit temp_f if present and finite
+            if isinstance(raw_temp_f, (int, float)):
+                try:
+                    if not (math.isnan(raw_temp_f) or math.isinf(raw_temp_f)):
+                        temp_f = round(float(raw_temp_f), 1)
+                except TypeError:
+                    temp_f = None
+            # Otherwise derive °F from °C if available and finite
+            elif isinstance(raw_temp_c, (int, float)):
+                try:
+                    if not (math.isnan(raw_temp_c) or math.isinf(raw_temp_c)):
+                        temp_f = round((float(raw_temp_c) * 9.0 / 5.0) + 32.0, 1)
+                except TypeError:
+                    temp_f = None
+
+            rooms.append({
+                "room": name,
+                "temp_f": temp_f,
+            })
+
+        return JsonResponse(
+            {
+                "rooms": rooms,
+                "updated_at": hh.get("updated_at"),
+            },
+            json_dumps_params={"allow_nan": False},
         )
-        state = addr.get("state")
-        if city and state:
-            return f"{city}, {state}"
-        if state:
-            return state
-        return city or None
-    except Exception:
-        return None
 
-
-
+    except Exception as e:
+        # Never emit HTML here; always JSON so jq and the frontend can handle it.
+        return JsonResponse(
+            {
+                "rooms": [],
+                "updated_at": None,
+                "error": str(e),
+            },
+            status=500,
+            json_dumps_params={"allow_nan": False},
+        )
 
 # --- Rangers schedule API for DayBuddy card ---
 # --- Rangers schedule API for DayBuddy card (CSV-based) ---

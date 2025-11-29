@@ -2,6 +2,8 @@ import calendar, datetime
 from django.http import HttpResponse
 from django.urls import path
 from daybuddy import views as cal_views
+from temps import views as temps_views
+from daybuddy import views as daybuddy_views
 
 
 def hms_view(_request):
@@ -27,4 +29,8 @@ urlpatterns = [
     path("houseboard/daybuddy/nhl/rangers/schedule", cal_views.rangers_schedule, name="rangers-schedule"),
     path("houseboard/daybuddy/nfl/schedule", cal_views.nfl_schedule, name="nfl-schedule"),
     path("houseboard/daybuddy/photos/archive", cal_views.photo_archive, name="photo_archive"),
+    path("api/houseboard/temps_ingest/", temps_views.temps_ingest, name="hb-temps-ingest"),
+    path("api/houseboard/house_temps/", daybuddy_views.house_temps, name="house_temps"),
+
+
 ]

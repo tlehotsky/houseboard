@@ -86,9 +86,25 @@ body::after{
 .wx-key .precip{color:#008ce0}
 #card-slideshow img{border-radius:8px;display:block;width:100%;height:auto}
 #card-slideshow .muted{margin-top:6px}
-/* Rangers schedule card as 7‑day grid */
-#card-rangers #rangers-sched{
-  margin-top:6px;
+
+
+/* Rangers card positioning */
+#card-rangers {
+  position: relative;
+  padding-bottom: 32px;
+}
+
+#rangers-logo {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;      /* ← bottom-left corner */
+  width: 42px;    /* adjust size here */
+  height: auto;
+  opacity: 0.9;
+}
+
+#rangers-sched {
+  margin-top: 6px;
 }
 #rangers-grid{
   display:grid;
@@ -186,7 +202,7 @@ body::after{
 #card-slideshow #slide-bar .meta{ text-align:right; }
 #card-slideshow{ justify-self:stretch; }
 #card-slideshow img{ max-height: 40vh; }
-#archive-photo-btn{background:#2a354a;color:#f2f5f9;border:1px solid #3b4765;border-radius:8px;padding:4px 10px;font-size:13px;font-weight:500;cursor:pointer;}
+/* #archive-photo-btn{background:#2a354a;color:#f2f5f9;border:1px solid #3b4765;border-radius:8px;padding:4px 10px;font-size:13px;font-weight:500;cursor:pointer;}
 #archive-photo-btn:hover{background:#34415a;border-color:#4d5c7a;}
 
 /* Bottom row: slideshow on the left, health cards stacked on the right */
@@ -196,7 +212,102 @@ body::after{
   grid-template-columns:minmax(0,3fr) minmax(0,1fr);
   gap:12px;
   align-items:flex-start;
+} */
+
+
+#archive-photo-btn{background:#2a354a;color:#f2f5f9;border:1px solid #3b4765;border-radius:8px;padding:4px 10px;font-size:13px;font-weight:500;cursor:pointer;}
+#archive-photo-btn:hover{background:#34415a;border-color:#4d5c7a;}
+
+/* Network health card states */
+#card-network {
+  position: relative;
+  overflow: hidden;
 }
+
+#card-network.good {
+  border-color:#2ecc71;
+  box-shadow:0 0 0 1px rgba(46,204,113,.35);
+}
+
+#card-network.warn {
+  border-color:#f1c40f;
+  box-shadow:0 0 0 1px rgba(241,196,15,.35);
+}
+
+#card-network.bad {
+  border-color:#e74c3c;
+  box-shadow:0 0 0 1px rgba(231,76,60,.35);
+}
+
+#card-network.unknown {
+  border-color:#555;
+}
+
+/* Tiny colored bullets next to text */
+.net-pill-dot {
+  display:inline-block;
+  width: 16px;
+  height:13px;
+  border-radius:50%;
+  margin-right:6px;
+  box-shadow:0 0 0 1px rgba(0,0,0,.6);
+}
+
+.net-pill-dot.good { background:#2ecc71; }
+.net-pill-dot.warn { background:#f1c40f; }
+.net-pill-dot.bad  { background:#e74c3c; }
+.net-pill-dot.unknown { background:#555; }
+
+/* Legend text under the rows */
+.net-legend {
+  margin-top:6px;
+  font-size:11px;
+  opacity:.7;
+  line-height:1.4;
+}
+
+.net-legend span.label {
+  font-weight:600;
+  margin-right:4px;
+}
+
+/* House health layout */
+#card-house .house-room-list{
+  margin-top:4px;
+}
+.house-room{
+  display:flex;
+  justify-content:space-between;
+  font-size:14px;
+  padding:2px 0;
+}
+.house-room .room-name{
+  opacity:.85;
+}
+.house-room .room-temp{
+  font-weight:600;
+}
+.house-room .room-temp.cold{
+  color:#7fb6ff;    /* cool blue for cold rooms */
+}
+.house-room .room-temp.hot{
+  color:#ff9b9b;    /* soft red for warm rooms */
+}
+
+
+
+/* Bottom row: slideshow on the left, health cards stacked on the right */
+.card-row-bottom{
+  grid-column:1 / -1;
+  display:grid;
+  grid-template-columns:minmax(0,3fr) minmax(0,1fr);
+  gap:12px;
+  align-items:flex-start;
+}
+
+
+
+
 .card-stack-right{
   display:grid;
   grid-auto-rows:minmax(min-content,max-content);
@@ -304,13 +415,14 @@ body::after{
 .actions{padding:12px 16px;border-top:1px solid #1a1d22;display:flex;gap:8px;justify-content:flex-end}
 .actions button{background:#1a2333;color:#f2f5f9;border:1px solid #2a3750;border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
 .actions button:hover{background:#21314a;border-color:#3b5172}
+#card-nfl{position:relative;padding-bottom:32px;} #nfl-logo{position:absolute;bottom:8px;right:8px;width:55px;height:auto;opacity:0.9;}
 </style>
 
 <div id="gear">⚙ Calendars</div>
 
 <div class="wrap">
   {{ people|json_script:"people-data" }}
-  <h1>DayBuddy – Week View VERSION 26</h1>
+  <h1>DayBuddy – Week View VERSION 30</h1>
   <div id="updated-at" style="text-align:left;opacity:.65;font-size:13px;margin-top:0;">
     Updated at —
   </div>
@@ -364,6 +476,7 @@ body::after{
       <div class="card" id="card-rangers">
         <h4>NY Rangers – Next 7 Days</h4>
         <div id="rangers-sched">Loading schedule…</div>
+        <img id="rangers-logo" src="https://a.espncdn.com/i/teamlogos/nhl/500/nyr.png" style="width:8%;height:auto;" alt="New York Rangers logo">
       </div>
       <div class="card" id="card-nfl">
         <h4 style="display:flex;justify-content:space-between;align-items:center;">
@@ -375,7 +488,10 @@ body::after{
           </span>
         </h4>
         <div id="nfl-sched">Coming soon</div>
-      </div>
+        <img
+          id="nfl-logo"
+          src="https://upload.wikimedia.org/wikipedia/en/a/a2/National_Football_League_logo.svg"
+          alt="NFL logo">      </div>
     </div>
     <div class="card-row-bottom">
       <div class="card" id="card-slideshow">
@@ -398,7 +514,48 @@ body::after{
           </div>
         </div>
       </div>
+
+
       <div class="card-stack-right">
+        <div class="card" id="card-network">
+          <h4>Network Health</h4>
+          <div class="muted" id="net-wifi">
+            <span class="net-pill-dot unknown"></span>
+            Wi-Fi health: —
+          </div>
+          <div class="muted" id="net-internet">
+            <span class="net-pill-dot unknown"></span>
+            Internet health: —
+          </div>
+          <div class="muted net-legend">
+            <div><span class="label">Good</span> Wi-Fi ≥ 70% quality and latency ≤ 40&nbsp;ms</div>
+            <div><span class="label">Okay</span> Wi-Fi ≥ 40% or latency ≤ 120&nbsp;ms</div>
+            <div><span class="label">Poor</span> Wi-Fi &lt; 40% or latency &gt; 120&nbsp;ms</div>
+          </div>
+        </div>
+
+        <div class="card" id="card-house">
+          <h4>House Health</h4>
+          <div class="muted" id="house-summary">Rooms: —</div>
+          <div class="muted house-room-list" id="house-rooms">
+            <div>Loading rooms…</div>
+          </div>
+          <div class="muted" id="house-alerts">Alerts: —</div>
+        </div>
+
+      </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+      <!-- <div class="card-stack-right">
         <div class="card" id="card-network">
           <h4>Network Health</h4>
           <div class="muted" id="net-wifi">Wi‑Fi health: —</div>
@@ -410,7 +567,14 @@ body::after{
           <div class="muted" id="house-alerts">Alerts: —</div>
         </div>
       </div>
-    </div>
+    </div> -->
+
+
+
+
+
+
+
   </div>
 </div>
 
@@ -1039,45 +1203,273 @@ async function loadWeather(){
   }
 }
 
-// Network health checker
+
+// Network health checker with color-coded status
 async function loadNetworkHealth(){
   const wifiEl = document.getElementById('net-wifi');
   const inetEl = document.getElementById('net-internet');
-  if (!wifiEl || !inetEl) return;
+  const card   = document.getElementById('card-network');
+  if (!wifiEl || !inetEl || !card) return;
 
-  // Default text while fetching
-  wifiEl.textContent = 'Wi‑Fi health: checking…';
-  inetEl.textContent = 'Internet health: checking…';
+  // Default content while fetching
+  wifiEl.innerHTML = '<span class="net-pill-dot unknown"></span>Wi-Fi health: checking…';
+  inetEl.innerHTML = '<span class="net-pill-dot unknown"></span>Internet health: checking…';
+  card.classList.remove('good','warn','bad','unknown');
+  card.classList.add('unknown');
+
+  // Parse something like "gooberbest (80% quality)" → 80
+  function parseWifiPercent(detail) {
+    if (!detail) return null;
+    const m = detail.match(/(\d+)\s*%/);
+    return m ? parseInt(m[1], 10) : null;
+  }
 
   try {
-    // Call the local Pi health server that you set up on port 8787
-    const res = await fetch('http://127.0.0.1:8787/network', { cache: 'no-store' });
-    if (!res.ok) {
-      throw new Error('wifi_health HTTP ' + res.status);
+    // Same endpoints you’re already using
+    const candidates = [
+      'http://127.0.0.1:8787/network',      // hb-pi kiosk
+      'http://hb-pi:8787/network',          // hb-pi hostname
+      'http://192.168.1.237:8787/network',  // hb-pi static LAN IP
+    ];
+
+    let j = null;
+    let lastErr = null;
+
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) {
+          lastErr = new Error('wifi_health HTTP ' + res.status + ' for ' + url);
+          continue;
+        }
+        j = await res.json();
+        break;
+      } catch (inner) {
+        lastErr = inner;
+      }
     }
 
-    const j = await res.json();
+    if (!j) {
+      throw lastErr || new Error('No wifi_health endpoint reachable');
+    }
 
     const wifiStatus = j.wifi_status || 'unknown';
     const wifiDetail = j.wifi_detail || '';
     const internetStatus = j.internet_status || 'unknown';
     const internetDetail = j.internet_detail || '';
-    const latency = (typeof j.latency_ms === 'number')
-      ? `${j.latency_ms.toFixed(1)} ms`
-      : '';
+    const latencyMs = (typeof j.latency_ms === 'number') ? j.latency_ms : null;
+    const latencyLabel = (latencyMs != null) ? `${latencyMs.toFixed(1)} ms` : '';
 
-    wifiEl.textContent = 'Wi‑Fi health: ' + (wifiDetail || wifiStatus);
-    inetEl.textContent = 'Internet health: ' + (internetDetail || internetStatus) + (latency ? ` (${latency})` : '');
+    const wifiPct = parseWifiPercent(wifiDetail);
+    let state = 'unknown';
+
+    // Classification rules:
+    // Good  : Wi-Fi ≥ 70% AND latency ≤ 40 ms (when present)
+    // Warn  : Wi-Fi ≥ 40% OR latency ≤ 120 ms
+    // Bad   : everything else that isn't unknown
+    if (wifiPct == null && latencyMs == null) {
+      state = 'unknown';
+    } else if (
+      (wifiPct == null || wifiPct >= 70) &&
+      (latencyMs == null || latencyMs <= 40)
+    ) {
+      state = 'good';
+    } else if (
+      (wifiPct != null && wifiPct >= 40) ||
+      (latencyMs != null && latencyMs <= 120)
+    ) {
+      state = 'warn';
+    } else {
+      state = 'bad';
+    }
+
+    // Update card classes + text
+    card.classList.remove('good','warn','bad','unknown');
+    card.classList.add(state);
+
+    wifiEl.innerHTML =
+      `<span class="net-pill-dot ${state}"></span>` +
+      'Wi-Fi health: ' + (wifiDetail || wifiStatus);
+
+    inetEl.innerHTML =
+      `<span class="net-pill-dot ${state}"></span>` +
+      'Internet health: ' +
+      (internetDetail || internetStatus) +
+      (latencyLabel ? ` (${latencyLabel})` : '');
+
   } catch (e) {
     console.error('Network health check failed', e);
-    wifiEl.textContent = 'Wi‑Fi health: unknown';
-    inetEl.textContent = 'Internet health: offline?';
+    card.classList.remove('good','warn','bad','unknown');
+    card.classList.add('bad');
+    wifiEl.innerHTML = '<span class="net-pill-dot bad"></span>Wi-Fi health: unknown';
+    inetEl.innerHTML = '<span class="net-pill-dot bad"></span>Internet health: offline?';
   }
 }
 
-// initial weather load
+// House health: show rooms and their temperatures in °F
+async function loadHouseHealth(){
+  const listEl    = document.getElementById('house-rooms');
+  const summaryEl = document.getElementById('house-summary');
+  if (!listEl || !summaryEl) return;
+
+  // Default state while loading
+  listEl.innerHTML = '<div>Loading rooms…</div>';
+  summaryEl.textContent = 'Rooms: —';
+
+  try {
+    // CANDIDATE ENDPOINTS:
+    // Adjust these URLs to match your actual house temperature API.
+  const candidates = [
+    '/api/houseboard/house_temps/',
+  ];
+
+    let data = null;
+    let lastErr = null;
+
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) {
+          lastErr = new Error('house_health HTTP ' + res.status + ' for ' + url);
+          continue;
+        }
+        data = await res.json();
+        break;
+      } catch (inner) {
+        lastErr = inner;
+      }
+    }
+
+    if (!data) {
+      throw lastErr || new Error('No house temperature endpoint reachable');
+    }
+
+    // Accept either {rooms:[...]} or a bare array
+    const rooms = Array.isArray(data.rooms) ? data.rooms :
+                  (Array.isArray(data) ? data : []);
+
+    if (!rooms.length) {
+      listEl.innerHTML = '<div>No room data.</div>';
+      summaryEl.textContent = 'Rooms: 0';
+      return;
+    }
+
+    // Sort alphabetically by room name
+    rooms.sort((a, b) => {
+      const na = (a.room || a.name || '').toLowerCase();
+      const nb = (b.room || b.name || '').toLowerCase();
+      if (na < nb) return -1;
+      if (na > nb) return 1;
+      return 0;
+    });
+
+    // Build the HTML list
+    const html = rooms.map(r => {
+      const name = r.room || r.name || 'Room';
+      let tempF = null;
+
+      if (typeof r.temp_f === 'number') {
+        tempF = r.temp_f;
+      } else if (typeof r.temperature_f === 'number') {
+        tempF = r.temperature_f;
+      }
+
+      const label = (tempF != null)
+        ? `${tempF.toFixed(1)} °F`
+        : '—';
+
+      let cls = '';
+      if (tempF != null) {
+        if (tempF <= 65) cls = 'cold';
+        else if (tempF >= 78) cls = 'hot';
+      }
+
+      return `
+        <div class="house-room">
+          <span class="room-name">${name}</span>
+          <span class="room-temp ${cls}">${label}</span>
+        </div>
+      `;
+    }).join('');
+
+    listEl.innerHTML = html;
+    summaryEl.textContent = `Rooms: ${rooms.length}`;
+
+  } catch (e) {
+    console.error('House health load failed', e);
+    listEl.innerHTML = '<div>Error loading house temps</div>';
+    summaryEl.textContent = 'Rooms: error';
+  }
+}
+
+
+
+
+
+// // Network health checker
+// async function loadNetworkHealth(){
+//   const wifiEl = document.getElementById('net-wifi');
+//   const inetEl = document.getElementById('net-internet');
+//   if (!wifiEl || !inetEl) return;
+
+//   // Default text while fetching
+//   wifiEl.textContent = 'Wi‑Fi health: checking…';
+//   inetEl.textContent = 'Internet health: checking…';
+
+//   try {
+//     // Try multiple possible endpoints so the card works both on the hb-pi
+//     // itself (localhost) and when viewed from another device on the LAN.
+//     const candidates = [
+//       'http://127.0.0.1:8787/network',      // when viewed on hb-pi itself
+//       'http://hb-pi:8787/network',     // hb-pi reachable by hostname
+//       'http://192.168.1.237:8787/network',  // hb-pi reachable by static LAN IP
+//     ];
+//     let j = null;
+//     let lastErr = null;
+//     for (const url of candidates) {
+//       try {
+//         const res = await fetch(url, { cache: 'no-store' });
+//         if (!res.ok) {
+//           lastErr = new Error('wifi_health HTTP ' + res.status + ' for ' + url);
+//           continue;
+//         }
+//         j = await res.json();
+//         break;
+//       } catch (inner) {
+//         lastErr = inner;
+//       }
+//     }
+
+//     if (!j) {
+//       throw lastErr || new Error('No wifi_health endpoint reachable');
+//     }
+
+//     const wifiStatus = j.wifi_status || 'unknown';
+//     const wifiDetail = j.wifi_detail || '';
+//     const internetStatus = j.internet_status || 'unknown';
+//     const internetDetail = j.internet_detail || '';
+//     const latency = (typeof j.latency_ms === 'number')
+//       ? `${j.latency_ms.toFixed(1)} ms`
+//       : '';
+
+//     wifiEl.textContent = 'Wi‑Fi health: ' + (wifiDetail || wifiStatus);
+//     inetEl.textContent = 'Internet health: ' + (internetDetail || internetStatus) + (latency ? ` (${latency})` : '');
+//   } catch (e) {
+//     console.error('Network health check failed', e);
+//     wifiEl.textContent = 'Wi‑Fi health: unknown';
+//     inetEl.textContent = 'Internet health: offline?';
+//   }
+// }
+
+
+
+
+
+
+// initial weather / health load
 loadWeather();
 loadNetworkHealth();
+loadHouseHealth();
 // --- Simple slideshow ---
 (function(){
   const IMG = document.getElementById('slide-img');
@@ -1096,6 +1488,7 @@ loadNetworkHealth();
         loadRangersSchedule(),
         loadNFLSchedule(),
         loadNetworkHealth(),
+        loadHouseHealth(),
       ]);
     } catch(e) {
       console.error('refreshAllCards failed', e);
@@ -1377,3 +1770,8 @@ async function loadNFLSchedule(){
 // initial NFL load
 loadNFLSchedule();
 </script>
+tlehotsky@houseboard:~/houseboard_temps $ curl -s http://127.0.0.1:8787/network
+{"wifi_status": "ok", "wifi_detail": "gooberbest (80% quality)", "internet_status": "ok", "internet_detail": "Online (15.6 ms)", "latency_ms": 15.6, "updated_at": "2025-11-27T12:40:08"}tlehotsky@houseboard:~/houseboard_temps $ 
+tlehotsky@houseboard:~/houseboard_temps $ 
+tlehotsky@houseboard:~/houseboard_temps $ cat /srv/daybuddy/status/network.json
+{"wifi_status": "ok", "wifi_detail": "gooberbest (80% quality)", "internet_status": "ok", "internet_detail
