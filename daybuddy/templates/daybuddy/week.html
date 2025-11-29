@@ -97,10 +97,21 @@ body::after{
 #rangers-logo {
   position: absolute;
   bottom: 8px;
-  left: 8px;      /* ← bottom-left corner */
+  left: 8px;      /* bottom-left corner */
   width: 42px;    /* adjust size here */
   height: auto;
   opacity: 0.9;
+}
+
+#devils-suck {
+  position:absolute;
+  bottom:8px;
+  right:8px;
+  font-size:26px;
+  font-weight:900;
+  color:#ff4a4a;
+  text-shadow:0 0 6px rgba(0,0,0,0.7);
+  opacity:0.95;
 }
 
 #rangers-sched {
@@ -430,7 +441,7 @@ body::after{
 
 <div class="wrap">
   {{ people|json_script:"people-data" }}
-  <h1>DayBuddy – Week View VERSION 30</h1>
+  <h1>DayBuddy – Week View VERSION 32</h1>
   <div id="updated-at" style="text-align:left;opacity:.65;font-size:13px;margin-top:0;">
     Updated at —
   </div>
@@ -480,10 +491,15 @@ body::after{
         <span class="wx-key"><span class="sw precip"></span> Chance of Precip (%)</span>
       </div>
     </div>
+
+
+
     <div class="card-row-schedules">
       <div class="card" id="card-rangers">
         <h4>NY Rangers – Next 7 Days</h4>
-        <div id="rangers-sched">Loading schedule…</div>
+        <div id="rangers-sched">Loading schedule… </div>
+        <div id="devils-suck">DEVILS SUCK</div>
+
         <img id="rangers-logo" src="https://a.espncdn.com/i/teamlogos/nhl/500/nyr.png" style="width:8%;height:auto;" alt="New York Rangers logo">
       </div>
       <div class="card" id="card-nfl">
