@@ -204,6 +204,10 @@ body::after{
 .nfl-day .game.evening{
   color:#ff9b9b;             /* light red text for evening games */
 }
+/* Force NFL broadcast tags (L, Y, P, O) to always be white */
+.nfl-day .game b {
+  color: #ffffff !important;
+}
 
 
 #card-slideshow #slide-bar .qr img{display:block;width:auto;height:auto;max-width:100px}
@@ -509,7 +513,7 @@ body::after{
           <span>NFL – Next 7 Days</span>
           <span style="font-size:13px;opacity:.75;display:flex;gap:10px;">
             <span style="margin-right:12px;">
-              L = Local &nbsp;&nbsp; P = Prime &nbsp;&nbsp; O = Other
+              L = Local &nbsp;&nbsp; Y = YouTube &nbsp;&nbsp; P = Prime &nbsp;&nbsp; O = Other
             </span>            
             <span><span style="color:#7fb6ff;">●</span> Early Afternoon</span>
             <span><span style="color:#ffe48a;">●</span> Late Afternoon</span>
@@ -1774,14 +1778,33 @@ async function loadNFLSchedule(){
           return 0;
         });
 
+        // for line starts here
         for (const g of ordered) {
           const slotClass = g.slot ? ` ${g.slot}` : '';
           const opp = g.opponent || '';
           const status = g.status ? ` (${g.status})` : '';
-          parts.push(
-            `<div class="game${slotClass}">${opp}${status}</div>`
-          );
+          // Map broadcast_class → display letter
+          const bc = g.broadcast_class || '';
+          const tag = (bc === 'local') ? 'L'
+                    : (bc === 'prime') ? 'P'
+                    : (bc === 'youtube') ? 'Y'     // YouTube TV is also streaming
+                    : 'O';
+
+          const isNoGame = opp.toLowerCase().includes('no game');
+
+          if (isNoGame) {
+            // "No game" rows: no letter prefix
+            parts.push(
+              `<div class="nogame">${opp}${status}</div>`
+            );
+          } else {
+            // Normal games keep the L / Y / P / O prefix
+            parts.push(
+              `<div class="game${slotClass}"><b>${tag}</b> ${opp}${status}</div>`
+            );
+          }
         }
+                //for line ends here
       }
 
       parts.push('</div>');
