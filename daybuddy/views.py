@@ -207,6 +207,7 @@ def rangers_schedule(request):
       - opponent    (e.g. New Jersey Devils)
       - home_away   (e.g. Home or Away)
       - status      (optional, e.g. Final, Scheduled)
+      - broadcast   (optional, e.g. MSG, ESPN, TNT)
     """
     csv_path = Path("/srv/daybuddy/data/ny_rangers_2025_2026_schedule.csv")
     if not csv_path.exists():
@@ -215,6 +216,19 @@ def rangers_schedule(request):
 
     today = datetime.date.today()
     end = today + datetime.timedelta(days=6)
+
+    def classify_rangers_broadcast(label: str) -> str:
+        """
+        Coarse classification for TV/streaming:
+          - 'msg'   -> any label containing 'MSG'
+          - 'other' -> anything else (including blank)
+        """
+        t = (label or "").strip().upper()
+        if "MSG" in t:
+            return "msg"
+        if not t:
+            return ""
+        return "other"
 
     def first(d, *names):
         """Return first non-empty field from possible column names."""
@@ -233,6 +247,8 @@ def rangers_schedule(request):
             opponent = first(row, "opponent", "Opponent", "OPP", "Opp")
             home_away = first(row, "home_away", "Home/Away", "HomeAway", "HA")
             status = first(row, "status", "Status")
+            broadcast_raw = first(row, "broadcast", "Broadcast", "BROADCAST", "Network", "NETWORK", "TV", "Tv", "tv")
+            broadcast_raw = (broadcast_raw or "").strip()            
 
             if not raw_date:
                 continue
@@ -283,8 +299,10 @@ def rangers_schedule(request):
                 "home_away": home_away,
                 "opponent": opponent,
                 "status": status,
+                "broadcast": broadcast_raw,
+                "broadcast_class": classify_rangers_broadcast(broadcast_raw),
             })
-
+            
     games_out.sort(key=lambda g: (g["date"], g["time_label"] or ""))
 
     return JsonResponse({"games": games_out})

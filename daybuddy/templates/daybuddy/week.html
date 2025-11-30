@@ -94,6 +94,12 @@ body::after{
   padding-bottom: 32px;
 }
 
+/* Highlight Rangers days broadcast on MSG */
+.rangers-day.msg-day {
+  background: #003b1f !important;  /* dark green */
+  border-color: #1a6b43 !important;
+}
+
 #rangers-logo {
   position: absolute;
   bottom: 8px;
@@ -445,7 +451,7 @@ body::after{
 
 <div class="wrap">
   {{ people|json_script:"people-data" }}
-  <h1>DayBuddy – Week View VERSION 32</h1>
+  <h1>DayBuddy – Week View VERSION 33</h1>
   <div id="updated-at" style="text-align:left;opacity:.65;font-size:13px;margin-top:0;">
     Updated at —
   </div>
@@ -1687,6 +1693,14 @@ async function loadRangersSchedule(){
       cell.appendChild(head);
 
       const dayGames = byDate.get(iso) || [];
+
+      // Check if any game this day is broadcast on MSG
+      const isMSG = dayGames.some(g => g.broadcast_class === 'msg');
+
+      if (isMSG) {
+        cell.classList.add('msg-day');
+      }
+
       if (dayGames.length === 0) {
         const span = document.createElement('div');
         span.className = 'nogame';
