@@ -504,8 +504,13 @@ body::after{
       </div>
       <div class="card" id="card-nfl">
         <h4 style="display:flex;justify-content:space-between;align-items:center;">
+
+
           <span>NFL – Next 7 Days</span>
           <span style="font-size:13px;opacity:.75;display:flex;gap:10px;">
+            <span style="margin-right:12px;">
+              L = Local &nbsp;&nbsp; P = Prime &nbsp;&nbsp; O = Other
+            </span>            
             <span><span style="color:#7fb6ff;">●</span> Early Afternoon</span>
             <span><span style="color:#ffe48a;">●</span> Late Afternoon</span>
             <span><span style="color:#ff9b9b;">●</span> Night/Evening</span>
@@ -564,7 +569,6 @@ body::after{
           <div class="muted house-room-list" id="house-rooms">
             <div>Loading rooms…</div>
           </div>
-          <div class="muted" id="house-alerts">Alerts: —</div>
         </div>
 
       </div>
@@ -1794,8 +1798,8 @@ async function loadNFLSchedule(){
 // initial NFL load
 loadNFLSchedule();
 </script>
-tlehotsky@houseboard:~/houseboard_temps $ curl -s http://127.0.0.1:8787/network
+<!-- tlehotsky@houseboard:~/houseboard_temps $ curl -s http://127.0.0.1:8787/network
 {"wifi_status": "ok", "wifi_detail": "gooberbest (80% quality)", "internet_status": "ok", "internet_detail": "Online (15.6 ms)", "latency_ms": 15.6, "updated_at": "2025-11-27T12:40:08"}tlehotsky@houseboard:~/houseboard_temps $ 
 tlehotsky@houseboard:~/houseboard_temps $ 
 tlehotsky@houseboard:~/houseboard_temps $ cat /srv/daybuddy/status/network.json
-{"wifi_status": "ok", "wifi_detail": "gooberbest (80% quality)", "internet_status": "ok", "internet_detail
+{"wifi_status": "ok", "wifi_detail": "gooberbest (80% quality)", "internet_status": "ok", "internet_detail -->

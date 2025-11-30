@@ -332,6 +332,23 @@ def nfl_schedule(request):
     def nickname(name: str) -> str:
         parts = (name or "").split()
         return parts[-1] if parts else (name or "")
+    
+    def classify_broadcast(label: str) -> str:
+        """
+        Map a raw broadcast string into a coarse bucket for the DayBuddy card:
+          - "local"   -> major over-the-air networks (NY-local feel)
+          - "prime"   -> Amazon Prime
+          - "youtube" -> YouTube / Sunday Ticket
+          - "other"   -> anything else or blank
+        """
+        t = (label or "").strip().upper()
+        if t in ("CBS", "FOX", "NBC", "ABC"):
+            return "local"
+        if "PRIME" in t:
+            return "prime"
+        if "YOUTUBE" in t:
+            return "youtube"
+        return "other"
 
     games_out = []
 
@@ -375,6 +392,11 @@ def nfl_schedule(request):
             home_team = first(row, "Home Team", "Home", "home", "HOME TEAM") or "Home"
             away_team = first(row, "Away Team", "Away", "away", "AWAY TEAM") or "Away"
 
+            # Broadcast network / platform (optional CSV column)
+            broadcast_raw = first(row, "Broadcast", "broadcast", "BROADCAST")
+            broadcast_raw = (broadcast_raw or "").strip()
+            broadcast_class = classify_broadcast(broadcast_raw)
+
             # Use only the nickname (last word), e.g. "Eagles" from "Philadelphia Eagles"
             matchup = f"{nickname(home_team)} vs {nickname(away_team)}".strip()
 
@@ -409,9 +431,11 @@ def nfl_schedule(request):
                     "opponent": matchup,
                     "status": first(row, "Result", "Status", "status"),
                     "slot": slot,
+                    # New: TV / streaming info from CSV
+                    "broadcast": broadcast_raw,
+                    "broadcast_class": broadcast_class,
                 }
             )
-
     # Ensure we emit at least one entry per calendar day in the 7‑day window.
     # For days with no actual games, we add a synthetic "No games" row so the
     # frontend can still render a tile labeled for that date.
