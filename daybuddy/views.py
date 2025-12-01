@@ -34,6 +34,11 @@ from django.http import JsonResponse, FileResponse, Http404
 from django.views.decorators.http import require_http_methods, require_POST
 from django.utils.text import slugify
 
+import json
+
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
 
 
 PHOTOS_ROOT = Path("/srv/daybuddy/photos")
@@ -123,6 +128,60 @@ def get_house_health():
         "zones": data.get("zones", []),
         "updated_at": data.get("updated_at"),
     }
+
+@csrf_exempt
+@require_POST
+def update_house_status(request):
+    """
+    Accept a JSON payload from hb-pi describing overall house status + zones,
+    and write it to HOUSE_STATUS_PATH so get_house_health() / house_temps()
+    will pick it up for the dashboard.
+    Expected payload shape (flexible, but recommended):
+    {
+      "overall_status": "ok",
+      "overall_detail": "",
+      "updated_at": "2025-11-30T17:05:00Z",
+      "zones": [
+        {"name": "Kitchen", "temp_f": 71.2},
+        {"name": "Garage", "temp_f": 62.3}
+      ]
+    }
+    """
+    try:
+      raw = request.body.decode("utf-8") or "{}"
+      data = json.loads(raw)
+    except json.JSONDecodeError:
+      return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    # Basic defensive defaults
+    overall_status = data.get("overall_status", "ok")
+    overall_detail = data.get("overall_detail", "")
+    zones = data.get("zones", [])
+
+    # If caller didn’t specify updated_at, fill it in
+    updated_at = data.get("updated_at")
+    if not updated_at:
+      updated_at = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+
+    safe = {
+      "overall_status": overall_status,
+      "overall_detail": overall_detail,
+      "updated_at": updated_at,
+      "zones": zones,
+    }
+
+    # Ensure directory exists, then write JSON atomically-ish
+    directory = os.path.dirname(HOUSE_STATUS_PATH)
+    if directory and not os.path.isdir(directory):
+        os.makedirs(directory, exist_ok=True)
+
+    # Create a sibling temp file path like /srv/daybuddy/status/house.json.tmp
+    tmp_path = HOUSE_STATUS_PATH.parent / (HOUSE_STATUS_PATH.name + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(safe, f, indent=2)
+    os.replace(tmp_path, HOUSE_STATUS_PATH)
+    return JsonResponse({"status": "ok"})
+
 
 @require_GET
 def house_temps(request):

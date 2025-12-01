@@ -31,6 +31,7 @@ urlpatterns = [
     path("houseboard/daybuddy/photos/archive", cal_views.photo_archive, name="photo_archive"),
     path("api/houseboard/temps_ingest/", temps_views.temps_ingest, name="hb-temps-ingest"),
     path("api/houseboard/house_temps/", daybuddy_views.house_temps, name="house_temps"),
+    path("api/houseboard/house_status/update/", daybuddy_views.update_house_status, name="house_status_update"),
     path("api/houseboard/nfl_schedule/", cal_views.nfl_schedule, name="nfl_schedule"),    
 
 
