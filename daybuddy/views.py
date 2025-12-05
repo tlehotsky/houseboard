@@ -6,7 +6,9 @@ import calendar, datetime, csv
 from collections import defaultdict
 from functools import lru_cache
 import math
+import re
 from django.conf import settings
+from django.utils import timezone
 import json as _json
 from pathlib import Path as _Path
 APP_ROOT = _Path(__file__).resolve().parent
@@ -181,6 +183,38 @@ def update_house_status(request):
         json.dump(safe, f, indent=2)
     os.replace(tmp_path, HOUSE_STATUS_PATH)
     return JsonResponse({"status": "ok"})
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+import json
+import os
+
+# ... your existing imports and HOUSE_STATUS_PATH definition ...
+
+
+@require_GET
+def house_status(request):
+    """
+    Read the current house status JSON file and return it as JSON.
+    This is what hb-pi will poll.
+    """
+    try:
+        with open(HOUSE_STATUS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        data = {
+            "overall_status": "unknown",
+            "overall_detail": "No house status file found yet.",
+            "zones": [],
+        }
+    except json.JSONDecodeError:
+        data = {
+            "overall_status": "error",
+            "overall_detail": "house.json is not valid JSON",
+            "zones": [],
+        }
+
+    return JsonResponse(data)
 
 
 @require_GET
@@ -367,181 +401,232 @@ def rangers_schedule(request):
     return JsonResponse({"games": games_out})
 
 
-@require_GET
-def nfl_schedule(request):
+# --- NFL schedule edit placeholder view ---
+@require_http_methods(["GET"])
+def nfl_schedule_edit(request):
     """
-    Return NFL schedule for the next 7 days based on the local season CSV.
+    Temporary placeholder page for editing the NFL schedule CSV.
 
-    Looks for one of the following files under /srv/daybuddy/data:
-      - nfl_schedule_2025.csv
-      - nfl_2025_full.csv
-
-    Expected columns (case-insensitive, flexible):
-      - Home Team / Away Team
-      - Date  (e.g. 05/09/2025 00:20 or 09/05/2025 00:20)
-
-    Output format is similar to the Rangers endpoint, but "opponent" is a
-    simple "Home vs Away" label, with no extra prefixes.
+    This exists so that the URL pattern
+    `path("houseboard/daybuddy/nfl/schedule/edit/", cal_views.nfl_schedule_edit, ...)`
+    can safely resolve without breaking the rest of DayBuddy.
     """
+    return HttpResponse(
+        "<!doctype html>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<title>DayBuddy – NFL Schedule Editor</title>"
+        "<body style='background:#050711;color:#f5f7ff;font-family:system-ui;"
+        "margin:0;padding:24px'>"
+        "<div style='max-width:720px;margin:0 auto;'>"
+        "<h1 style='margin:0 0 12px 0;font-size:24px;'>NFL Schedule Editor</h1>"
+        "<p style='opacity:.85;font-size:15px;line-height:1.5;'>"
+        "This is a placeholder page for the future NFL schedule CSV editor. "
+        "The main DayBuddy dashboard should continue to work normally."
+        "</p>"
+        "<p style='margin-top:18px;font-size:14px;'>"
+        "<a href='/houseboard/daybuddy/week/' "
+        "style='color:#8fb5ff;text-decoration:none;'>"
+        "← Back to Week View</a>"
+        "</p>"
+        "</div>"
+        "</body>"
+    )
+
+
+def _find_nfl_csv():
+    """Return the Path to the NFL CSV file if it exists, else None."""
     base_dir = Path("/srv/daybuddy/data")
     candidates = [
         base_dir / "nfl_schedule_2025.csv",
         base_dir / "nfl_2025_full.csv",
     ]
-    csv_path = None
     for p in candidates:
         if p.exists():
-            csv_path = p
-            break
+            return p
+    return None
+
+@require_GET
+def nfl_schedule(request):
+    """
+    Return JSON describing NFL schedule for the next ~7 days.
+
+    This reads the first NFL CSV it can find via _find_nfl_csv() and
+    normalises it into the simple shape that the DayBuddy week
+    dashboard expects:
+
+        {
+            "games": [
+                {
+                    "date": "2025-12-04",
+                    "day_label": "Thu",
+                    "date_label": "12/4",
+                    "opponent": "SEA @ DAL",
+                    "status": "8:15 PM",
+                    "broadcast_class": "prime|youtube|local|other",
+                    "slot": "morning|afternoon|evening"
+                },
+                ...
+            ]
+        }
+    """
+    csv_path = _find_nfl_csv()
     if not csv_path:
+        # No file available – just return an empty list so the card
+        # shows "No NFL games…" instead of a 500.
         return JsonResponse({"games": []})
 
-    today = datetime.date.today()
-    end = today + datetime.timedelta(days=6)
 
-    def first(d, *names):
-        """Return first non-empty field from possible column names."""
-        for name in names:
-            if name in d and d[name]:
-                return d[name]
-        return ""
 
-    def nickname(name: str) -> str:
-        parts = (name or "").split()
-        return parts[-1] if parts else (name or "")
-    
-    def classify_broadcast(label: str) -> str:
-        """
-        Map a raw broadcast string into a coarse bucket for the DayBuddy card:
-          - "local"   -> major over-the-air networks (NY-local feel)
-          - "prime"   -> Amazon Prime
-          - "youtube" -> YouTube / Sunday Ticket
-          - "other"   -> anything else or blank
-        """
-        t = (label or "").strip().upper()
-        if t in ("CBS", "FOX", "NBC", "ABC"):
-            return "local"
-        if "PRIME" in t:
-            return "prime"
-        if "YOUTUBE" in t:
-            return "youtube"
-        return "other"
 
-    games_out = []
 
-    with csv_path.open(newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            raw_dt = first(row, "Date", "date", "DATE")
-            if not raw_dt:
-                continue
+    try:
+        import csv
+        from datetime import datetime, timedelta
 
-            # Parse date/time; CSV has strings like "05/09/2025 00:20".
-            dt_obj = None
-            raw_dt_stripped = raw_dt.strip()
-            for fmt in (
-                "%d/%m/%Y %H:%M",
-                "%m/%d/%Y %H:%M",
-                "%Y-%m-%d %H:%M",
-                "%d/%m/%Y",
-                "%m/%d/%Y",
-                "%Y-%m-%d",
-            ):
+        today = timezone.localdate()
+        window_end = today + timedelta(days=7)
+
+        def parse_date(raw: str):
+            if not raw:
+                return None
+            raw_str = raw.strip()
+            # Try a variety of common formats used by public NFL CSVs
+            formats = (
+                "%Y-%m-%d",   # 2025-12-04
+                "%Y/%m/%d",   # 2025/12/04
+                "%m/%d/%Y",   # 12/04/2025 (US style)
+                "%m/%d/%y",   # 12/04/25   (US style, short year)
+                "%d/%m/%Y",   # 04/12/2025 (EU style)
+                "%d/%m/%y",   # 04/12/25   (EU style, short year)
+                "%d-%b-%Y",   # 4-Dec-2025
+                "%d %b %Y",   # 4 Dec 2025
+            )
+            for fmt in formats:
                 try:
-                    dt_obj = datetime.datetime.strptime(raw_dt_stripped, fmt)
-                    break
+                    return datetime.strptime(raw_str, fmt).date()
                 except ValueError:
                     continue
-            if dt_obj is None:
-                continue
+            return None
 
-            # Treat CSV times as UTC and convert to a rough US/Eastern local
-            # time for display-slot classification. This makes the front-end
-            # color codes (morning/afternoon/evening) line up more closely with
-            # when games actually kick off for you.
-            local_dt = dt_obj - datetime.timedelta(hours=5)
-            date_obj = local_dt.date()
+        def classify_slot(time_str: str) -> str:
+            """
+            Roughly bucket the kickoff time into morning / afternoon / evening.
 
-            # Only keep games in the next 7 calendar days (including today)
-            if not (today <= date_obj <= end):
-                continue
+            Fallback is 'afternoon' so we at least get a neutral colour.
+            """
+            if not time_str:
+                return "afternoon"
+            s = time_str.strip().lower()
+            # normalise things like "1:00 PM" / "1:00pm" / "1pm"
+            s = s.replace(" ", "")
+            m = re.match(r"^(\d{1,2})(?::(\d{2}))?([ap])m?$", s)
+            if not m:
+                return "afternoon"
+            hour = int(m.group(1))
+            minute = int(m.group(2) or "0")  # noqa: F841  # kept for completeness / future use
+            ap = m.group(3)
+            hour = hour % 12 + (12 if ap == "p" else 0)
+            # Treat < 13:00 as "morning", 13:00–17:59 as "afternoon",
+            # and 18:00+ as "evening".
+            if hour < 13:
+                return "morning"
+            if hour < 18:
+                return "afternoon"
+            return "evening"
 
-            home_team = first(row, "Home Team", "Home", "home", "HOME TEAM") or "Home"
-            away_team = first(row, "Away Team", "Away", "away", "AWAY TEAM") or "Away"
+        def classify_broadcast(row: dict) -> str:
+            """
+            Map whatever broadcast text we have into one of:
+                local, youtube, prime, other
+            """
+            text = ""
+            # Try a couple of likely field names.
+            for key in ("broadcast_class", "broadcast", "tv", "network"):
+                for k in (key, key.upper(), key.capitalize()):
+                    if k in row and row[k]:
+                        text = str(row[k]).lower()
+                        break
+                if text:
+                    break
 
-            # Broadcast network / platform (optional CSV column)
-            broadcast_raw = first(row, "Broadcast", "broadcast", "BROADCAST")
-            broadcast_raw = (broadcast_raw or "").strip()
-            broadcast_class = classify_broadcast(broadcast_raw)
+            if not text:
+                return "other"
+            if "prime" in text or "tnf" in text:
+                return "prime"
+            if "youtube" in text or "yt " in text or "ytv" in text:
+                return "youtube"
+            # Treat “fox”, “cbs”, “nbc”, “abc”, “espn” as “local-ish”
+            # for our purposes – they’ll get the “L” tag on the card.
+            for key in ("fox", "cbs", "nbc", "abc", "espn"):
+                if key in text:
+                    return "local"
+            return "other"
 
-            # Use only the nickname (last word), e.g. "Eagles" from "Philadelphia Eagles"
-            matchup = f"{nickname(home_team)} vs {nickname(away_team)}".strip()
+        games_out = []
 
-            date_label = date_obj.strftime("%b %-d")   # e.g. Nov 15
-            day_label = date_obj.strftime("%a")        # e.g. Sat
+        with open(csv_path, newline="") as f:
+            reader = csv.DictReader(f)
+            # normalise header keys to make lookups forgiving
+            header_map = {name.lower(): name for name in (reader.fieldnames or [])}
 
-            # Compute a simple "slot" for color-coding on the front end based
-            # on the local (US/Eastern-ish) hour:
-            #  - morning (blue):   < 14:00
-            #  - afternoon (yellow): 14:00–17:59
-            #  - evening (red):   >= 18:00
-            local_hour = local_dt.hour
-            # Blue: games starting before 2pm
-            if local_hour < 14:
-                slot = "morning"
-            # Yellow: 2pm to before 6pm
-            elif local_hour < 18:
-                slot = "afternoon"
-            # Red: 6pm and later
-            else:
-                slot = "evening"
+            def get(row, key, default=""):
+                # prefer exact lower-case match, then original key.
+                k = header_map.get(key.lower())
+                if k and k in row and row[k]:
+                    return row[k]
+                # allow directly-named columns (e.g. already lower-case)
+                return row.get(key, default)
 
-            games_out.append(
-                {
-                    "date": date_obj.isoformat(),
-                    "date_label": date_label,
-                    "day_label": day_label,
-                    # keep time_label empty so we don't clutter the narrow tiles
-                    "time_label": "",
-                    # no explicit home/away tag; the matchup label is enough
-                    "home_away": "",
-                    "opponent": matchup,
-                    "status": first(row, "Result", "Status", "status"),
-                    "slot": slot,
-                    # New: TV / streaming info from CSV
-                    "broadcast": broadcast_raw,
-                    "broadcast_class": broadcast_class,
-                }
-            )
-    # Ensure we emit at least one entry per calendar day in the 7‑day window.
-    # For days with no actual games, we add a synthetic "No games" row so the
-    # frontend can still render a tile labeled for that date.
-    existing_dates = {g["date"] for g in games_out}
-    day = today
-    while day <= end:
-        iso = day.isoformat()
-        if iso not in existing_dates:
-            date_label = day.strftime("%b %-d")   # e.g. Nov 15
-            day_label = day.strftime("%a")        # e.g. Sat
-            games_out.append(
-                {
-                    "date": iso,
-                    "date_label": date_label,
-                    "day_label": day_label,
-                    "time_label": "",
-                    "home_away": "",
-                    "opponent": "No games",
-                    "status": "",
-                    # Special slot for styling a neutral/no‑game entry;
-                    # the frontend can treat this like a normal game row.
-                    "slot": "none",
-                }
-            )
-        day += datetime.timedelta(days=1)
-    games_out.sort(key=lambda g: (g["date"], g["opponent"] or ""))
+            for row in reader:
+                raw_date = get(row, "date") or get(row, "Date")
+                d = parse_date(raw_date)
+                if not d:
+                    continue
+                if d < today or d > window_end:
+                    continue
 
-    return JsonResponse({"games": games_out})
+                # Build labels
+                day_label = d.strftime("%a")          # Mon, Tue…
+                date_label = f"{d.month}/{d.day}"    # 12/4
 
+                opponent = (
+                    get(row, "opponent")
+                    or get(row, "matchup")
+                    or get(row, "game")
+                    or ""
+                )
+                status = (
+                    get(row, "status")
+                    or get(row, "time")
+                    or get(row, "TimeET")
+                    or ""
+                )
+                broadcast_class = classify_broadcast(row)
+                slot = get(row, "slot") or classify_slot(status)
+
+                games_out.append(
+                    {
+                        "date": d.isoformat(),
+                        "day_label": day_label,
+                        "date_label": date_label,
+                        "opponent": opponent,
+                        "status": status,
+                        "broadcast_class": broadcast_class,
+                        "slot": slot,
+                    }
+                )
+
+        # Sort by date so the front-end can just group by date string.
+        games_out.sort(key=lambda g: (g["date"], g.get("status") or ""))
+
+        return JsonResponse({"games": games_out})
+    except Exception as e:
+        # Defensive: never leak HTML traceback to the client; always emit JSON.
+        return JsonResponse(
+            {"games": [], "error": str(e)},
+            status=500,
+            json_dumps_params={"indent": 2},
+        )
 def healthz(_request):
     return HttpResponse("ok")
 
