@@ -464,7 +464,7 @@ def nfl_schedule(request):
                     "time_label": "8:15 PM",
                     "status": "24 - 20",
                     "broadcast_class": "prime|youtube|local|other",
-                    "slot": "morning|afternoon|evening"
+                    "slot": "afternoon|evening|primetime"  # Slot: see logic below
                 },
                 ...
             ]
@@ -599,14 +599,17 @@ def nfl_schedule(request):
                 # Windows / non-GNU strftime fallback (just in case)
                 time_label = dt_local.strftime("%I:%M %p").lstrip("0")
 
-            # Coarse slot classification used for card colours
+            # Slot classification (based on local time, e.g. America/New_York):
+            #   - afternoon:  kicks before 16:00 (4:00 PM)      → blue
+            #   - evening:    16:00–19:59 (4:00–7:59 PM)        → yellow
+            #   - primetime:  20:00 and later (8:00 PM or later) → red
             hour = dt_local.hour
-            if hour < 13:
-                slot = "morning"
-            elif hour < 18:
+            if hour < 16:
                 slot = "afternoon"
-            else:
+            elif hour < 20:
                 slot = "evening"
+            else:
+                slot = "primetime"
 
             broadcast_raw = (
                 row.get("Broadcast")

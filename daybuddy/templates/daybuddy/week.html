@@ -1772,6 +1772,26 @@ async function loadNFLSchedule(){
       return;
     }
 
+    // Classify game slot based on local (browser) kickoff time:
+    // before 4:00 PM → "morning" (blue)
+    // 4:00–7:59 PM   → "afternoon" (yellow)
+    // 8:00 PM+       → "evening"  (red)
+    function classifySlotFromTimeLabel(timeLabel, fallbackSlot) {
+      const mins = parseStartMinutes(timeLabel || '');
+      let slot = fallbackSlot || '';
+
+      if (mins != null) {
+        if (mins < 16 * 60) {
+          slot = 'morning';
+        } else if (mins < 20 * 60) {
+          slot = 'afternoon';
+        } else {
+          slot = 'evening';
+        }
+      }
+      return slot;
+    }
+
     // Group games by date string
     const byDate = {};
     for(const g of games){
@@ -1804,19 +1824,32 @@ async function loadNFLSchedule(){
       if (!day.list.length) {
         parts.push('<div class="nogame">No game</div>');
       } else {
-        // Sort by slot so that morning (blue) games come first,
-        // afternoon (yellow) second, and evening (red) last.
+        // Sort by slot so that "before 4pm" (blue) games come first,
+        // 4–7:59pm (yellow) second, and 8pm+ (red) last.
         const ordered = [...day.list].sort((a, b) => {
           const order = { morning: 0, afternoon: 1, evening: 2 };
-          const sa = order[a.slot] ?? 3;
-          const sb = order[b.slot] ?? 3;
+
+          const timeA =
+            a.time_label || a.kickoff_label || a.time || a.kickoff || '';
+          const timeB =
+            b.time_label || b.kickoff_label || b.time || b.kickoff || '';
+
+          const slotA = classifySlotFromTimeLabel(timeA, a.slot);
+          const slotB = classifySlotFromTimeLabel(timeB, b.slot);
+
+          const sa = order[slotA] ?? 3;
+          const sb = order[slotB] ?? 3;
+
           if (sa !== sb) return sa - sb;
           // As a tie-breaker, keep original relative order if slots match.
           return 0;
         });
 
         for (const g of ordered) {
-          const slotClass = g.slot ? ` ${g.slot}` : '';
+          const timeLabel =
+            g.time_label || g.kickoff_label || g.time || g.kickoff || '';
+          const slotName = classifySlotFromTimeLabel(timeLabel, g.slot);
+          const slotClass = slotName ? ` ${slotName}` : '';
 
           // Try to build a readable matchup string from several possible fields
           const home =
@@ -1859,8 +1892,6 @@ async function loadNFLSchedule(){
           }
 
           // Build a status string with time / extra info when present
-          const timeLabel =
-            g.time_label || g.kickoff_label || g.time || g.kickoff || '';
           const extraLabel = g.status || g.note || g.channel || '';
           const statusParts = [];
           if (timeLabel) statusParts.push(timeLabel);
