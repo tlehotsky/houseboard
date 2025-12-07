@@ -64,7 +64,7 @@
         <div class="message">{{ message }}</div>
       {% endif %}
 
-      <form method="post" onsubmit="syncCsvBeforeSubmit()">
+      <form method="post" onsubmit="return syncCsvBeforeSubmit()">
         {% csrf_token %}
 
         <!-- Hidden raw CSV field that the view reads/writes -->
@@ -192,7 +192,32 @@
         try {
           const wrapper = document.querySelector(".table-wrapper");
           if (wrapper && window.sessionStorage) {
+            // Save scroll position
             sessionStorage.setItem("nfl_edit_scroll", String(wrapper.scrollTop));
+
+            // Save the row index the user was working on (if any)
+            const active = document.activeElement;
+            let rowIndexToSave = null;
+            if (active && active.classList && active.classList.contains("cell-input")) {
+              rowIndexToSave = active.getAttribute("data-row");
+            } else {
+              // Fallback: first visible row in the viewport
+              const rows = Array.from(wrapper.querySelectorAll("tbody tr"));
+              for (const r of rows) {
+                const rect = r.getBoundingClientRect();
+                const wrapperRect = wrapper.getBoundingClientRect();
+                if (rect.bottom > wrapperRect.top) {
+                  const firstCellInput = r.querySelector(".cell-input");
+                  if (firstCellInput) {
+                    rowIndexToSave = firstCellInput.getAttribute("data-row");
+                  }
+                  break;
+                }
+              }
+            }
+            if (rowIndexToSave !== null) {
+              sessionStorage.setItem("nfl_edit_row_index", String(rowIndexToSave));
+            }
           }
         } catch (e) {
           // ignore scroll persistence errors
@@ -205,9 +230,19 @@
         try {
           const wrapper = document.querySelector(".table-wrapper");
           if (wrapper && window.sessionStorage) {
-            const saved = sessionStorage.getItem("nfl_edit_scroll");
-            if (saved !== null) {
-              const offset = parseInt(saved, 10);
+            const savedRow = sessionStorage.getItem("nfl_edit_row_index");
+            if (savedRow !== null) {
+              const targetInput = wrapper.querySelector('.cell-input[data-row="' + savedRow + '"]');
+              if (targetInput && targetInput.scrollIntoView) {
+                targetInput.scrollIntoView({ block: "center" });
+                targetInput.focus();
+                return; // we've restored position based on row
+              }
+            }
+
+            const savedScroll = sessionStorage.getItem("nfl_edit_scroll");
+            if (savedScroll !== null) {
+              const offset = parseInt(savedScroll, 10);
               if (!isNaN(offset)) {
                 wrapper.scrollTop = offset;
               }
