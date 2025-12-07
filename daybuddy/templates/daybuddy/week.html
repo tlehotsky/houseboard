@@ -723,19 +723,21 @@ body::after{
                 <div class="temp-marker"
                      data-room="Master bedroom closet"
                      data-label="Closet"
-                     style="top: 38%; left: 57%;">
-                  Master cl: —
+                     data-nolabel="true"
+                     style="top: 40%; left: 57.5%;">
+                  —
                 </div>
                 <div class="temp-marker"
                      data-room="2nd floor hall"
                      data-label="Hall"
-                     style="top: 31%; left: 40%;">
-                  Hall: —
+                     data-nolabel="true"
+                     style="top: 33%; left: 43%;">
+                  —
                 </div>
                 <div class="temp-marker"
                      data-room="Alex's room"
                      data-label="Alex"
-                     style="top: 64%; left: 41%;">
+                     style="top: 64%; left: 42%;">
                   Alex: —
                 </div>
               </div>
@@ -1637,12 +1639,16 @@ async function loadHouseHealth(){
       // Reset state
       marker.classList.remove('cold', 'hot');
 
+      const noLabel = marker.hasAttribute('data-nolabel');
+
       if (tempF == null) {
-        marker.textContent = `${displayName}: —`;
+        marker.textContent = noLabel ? `—` : `${displayName}: —`;
         return;
       }
 
-      marker.textContent = `${displayName}: ${tempF.toFixed(1)}°F`;
+      marker.textContent = noLabel
+        ? `${tempF.toFixed(1)}°F`
+        : `${displayName}: ${tempF.toFixed(1)}°F`;
 
       if (tempF <= 65) {
         marker.classList.add('cold');
