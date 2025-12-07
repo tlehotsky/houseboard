@@ -4,6 +4,8 @@ from django.urls import path, include
 from daybuddy import views as cal_views
 from temps import views as temps_views
 from daybuddy import views as daybuddy_views
+from django.conf import settings
+from django.conf.urls.static import static
 
 
 def hms_view(_request):
@@ -37,3 +39,10 @@ urlpatterns = [
 
 
 ]
+
+# Serve static files (including house plans) via Django when DEBUG is True
+if settings.DEBUG:
+    urlpatterns += static(
+        settings.STATIC_URL,
+        document_root=settings.BASE_DIR / "daybuddy" / "static",
+    )

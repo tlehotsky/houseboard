@@ -136,6 +136,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '161.35.180.75']
 
+STATICFILES_DIRS = [
+    BASE_DIR / "daybuddy" / "static",
+]
+
 import os
 CSRF_TRUSTED_ORIGINS = os.environ.get('HB_CSRF_TRUSTED','').split(',') if os.environ.get('HB_CSRF_TRUSTED') else []
 

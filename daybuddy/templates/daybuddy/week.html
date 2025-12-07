@@ -1,5 +1,6 @@
 <!doctype html><meta charset="utf-8"><title>HouseBoard – DayBuddy</title>
 <!doctype html><meta charset="utf-8"><title>HouseBoard – DayBuddy</title>
+{% load static %}
 <style>
 /* ---- Base --------------------------------------------------------------- */
 body{background:#0b0c10;color:#f2f5f9;font:400 16px/1.5 system-ui;margin:0}
@@ -323,6 +324,31 @@ body::after{
   color:#ff9b9b;    /* soft red for warm rooms */
 }
 
+/* House health floor plans stacked vertically */
+.house-plans{
+  margin-top:8px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.house-plan{
+  background:#f5f5f5;
+  border-radius:8px;
+  padding:4px 6px 6px;
+}
+.house-plan-title{
+  font-size:11px;
+  opacity:.8;
+  margin:0 0 3px;
+}
+.house-plan img{
+  display:block;
+  width:100%;
+  max-width:100%;
+  height:auto;
+  object-fit:contain;
+}
+
 
 
 /* Bottom row: slideshow on the left, health cards stacked on the right */
@@ -597,6 +623,41 @@ body::after{
           <div class="muted" id="house-summary">Rooms: —</div>
           <div class="muted house-room-list" id="house-rooms">
             <div>Loading rooms…</div>
+          </div>
+
+          <div class="house-plans">
+            <div class="house-plan">
+              <p class="house-plan-title">Basement</p>
+              <img
+                src="{% static 'daybuddy/house_plans/HOUSE-PLANS-b.png' %}"
+                alt="Basement floor plan"
+                loading="lazy"
+              >
+            </div>
+            <div class="house-plan">
+              <p class="house-plan-title">First Floor</p>
+              <img
+                src="{% static 'daybuddy/house_plans/HOUSE-PLANS-01.png' %}"
+                alt="First floor plan"
+                loading="lazy"
+              >
+            </div>
+            <div class="house-plan">
+              <p class="house-plan-title">Second Floor</p>
+              <img
+                src="{% static 'daybuddy/house_plans/HOUSE-PLANS-02.png' %}"
+                alt="Second floor plan"
+                loading="lazy"
+              >
+            </div>
+            <div class="house-plan">
+              <p class="house-plan-title">Attic</p>
+              <img
+                src="{% static 'daybuddy/house_plans/HOUSE-PLANS-a.png' %}"
+                alt="Attic floor plan"
+                loading="lazy"
+              >
+            </div>
           </div>
         </div>
 
