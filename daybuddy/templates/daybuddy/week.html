@@ -374,6 +374,9 @@ body::after{
   .temp-marker.hot{
     background:rgba(255,90,90,0.9);
   }
+  .temp-marker.normal{
+    background:rgba(90,200,90,0.9);  /* green mid-range */
+  }
 
 
 
@@ -1637,7 +1640,7 @@ async function loadHouseHealth(){
       }
 
       // Reset state
-      marker.classList.remove('cold', 'hot');
+      marker.classList.remove('cold', 'normal', 'hot');
 
       const noLabel = marker.hasAttribute('data-nolabel');
 
@@ -1650,9 +1653,15 @@ async function loadHouseHealth(){
         ? `${tempF.toFixed(1)}°F`
         : `${displayName}: ${tempF.toFixed(1)}°F`;
 
-      if (tempF <= 65) {
+      // Color logic:
+      // <65 = cold (blue)
+      // 65–75.9 = normal (green)
+      // >=76 = hot (red)
+      if (tempF < 65) {
         marker.classList.add('cold');
-      } else if (tempF >= 78) {
+      } else if (tempF < 76) {
+        marker.classList.add('normal');
+      } else {
         marker.classList.add('hot');
       }
     });
