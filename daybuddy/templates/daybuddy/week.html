@@ -325,29 +325,55 @@ body::after{
 }
 
 /* House health floor plans stacked vertically */
-.house-plans{
-  margin-top:8px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-.house-plan{
-  background:#f5f5f5;
-  border-radius:8px;
-  padding:4px 6px 6px;
-}
-.house-plan-title{
-  font-size:11px;
-  opacity:.8;
-  margin:0 0 3px;
-}
-.house-plan img{
-  display:block;
-  width:100%;
-  max-width:100%;
-  height:auto;
-  object-fit:contain;
-}
+  .house-plans{
+    margin-top:8px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .house-plan{
+    background:#f5f5f5;
+    border-radius:8px;
+    padding:4px 6px 6px;
+    position:relative;          /* allow absolute-positioned markers */
+    overflow:hidden;
+  }
+  .house-plan-title{
+    font-size:11px;
+    opacity:.8;
+    margin:0 0 3px;
+  }
+  .house-plan img{
+    display:block;
+    width:100%;
+    max-width:100%;
+    height:auto;
+    object-fit:contain;
+  }
+  /* overlay layer on top of each floorplan image */
+  .house-plan-overlay{
+    position:absolute;
+    inset:0;                    /* top:0; right:0; bottom:0; left:0 */
+    pointer-events:none;        /* allow clicks to pass through if needed */
+  }
+  /* individual temp markers */
+  .temp-marker{
+    position:absolute;
+    transform:translate(-50%,-50%);
+    background:rgba(0,0,0,0.7);
+    color:#fff;
+    font-size:11px;
+    padding:2px 6px;
+    border-radius:999px;
+    white-space:nowrap;
+    pointer-events:none;
+  }
+  .temp-marker.cold{
+    background:rgba(80,140,255,0.9);
+  }
+  .temp-marker.hot{
+    background:rgba(255,90,90,0.9);
+  }
 
 
 
@@ -633,6 +659,14 @@ body::after{
                 alt="Basement floor plan"
                 loading="lazy"
               >
+              <div class="house-plan-overlay">
+                <!-- Example marker for Basement zone -->
+                <div class="temp-marker"
+                     data-room="Basement"
+                     style="top: 40%; left: 20%;">
+                  Basement: —
+                </div>
+              </div>
             </div>
             <div class="house-plan">
               <p class="house-plan-title">First Floor</p>
@@ -641,6 +675,19 @@ body::after{
                 alt="First floor plan"
                 loading="lazy"
               >
+              <div class="house-plan-overlay">
+                <!-- Example markers, adjust room names/positions as needed -->
+                <div class="temp-marker"
+                     data-room="Kitchen"
+                     style="top: 40%; left: 65%;">
+                  Kitchen: —
+                </div>
+                <div class="temp-marker"
+                     data-room="Family Room"
+                     style="top: 65%; left: 30%;">
+                  Family Room: —
+                </div>
+              </div>
             </div>
             <div class="house-plan">
               <p class="house-plan-title">Second Floor</p>
@@ -649,6 +696,23 @@ body::after{
                 alt="Second floor plan"
                 loading="lazy"
               >
+              <div class="house-plan-overlay">
+                <div class="temp-marker"
+                     data-room="Lily's room"
+                     style="top: 30%; left: 30%;">
+                  Lily's room: —
+                </div>
+                <div class="temp-marker"
+                     data-room="Sydney's bedroom"
+                     style="top: 30%; left: 70%;">
+                  Sydney's bedroom: —
+                </div>
+                <div class="temp-marker"
+                     data-room="Office"
+                     style="top: 65%; left: 50%;">
+                  Office: —
+                </div>
+              </div>
             </div>
             <div class="house-plan">
               <p class="house-plan-title">Attic</p>
@@ -657,6 +721,14 @@ body::after{
                 alt="Attic floor plan"
                 loading="lazy"
               >
+              <div class="house-plan-overlay">
+                <!-- Optional attic marker -->
+                <div class="temp-marker"
+                     data-room="Attic"
+                     style="top: 50%; left: 50%;">
+                  Attic: —
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1512,6 +1584,43 @@ async function loadHouseHealth(){
 
     listEl.innerHTML = html;
     summaryEl.textContent = `Rooms: ${rooms.length}`;
+
+    // Update any temp markers overlaid on the floorplan images
+    const markers = document.querySelectorAll('.temp-marker');
+    markers.forEach(marker => {
+      const roomName = marker.getAttribute('data-room') || '';
+      if (!roomName) return;
+
+      const room = rooms.find(r => {
+        const n = (r.room || r.name || '').toLowerCase();
+        return n === roomName.toLowerCase();
+      });
+
+      let tempF = null;
+      if (room) {
+        if (typeof room.temp_f === 'number') {
+          tempF = room.temp_f;
+        } else if (typeof room.temperature_f === 'number') {
+          tempF = room.temperature_f;
+        }
+      }
+
+      // Reset state
+      marker.classList.remove('cold', 'hot');
+
+      if (tempF == null) {
+        marker.textContent = `${roomName}: —`;
+        return;
+      }
+
+      marker.textContent = `${roomName}: ${tempF.toFixed(1)}°F`;
+
+      if (tempF <= 65) {
+        marker.classList.add('cold');
+      } else if (tempF >= 78) {
+        marker.classList.add('hot');
+      }
+    });
 
   } catch (e) {
     console.error('House health load failed', e);
