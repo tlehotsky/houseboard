@@ -28,6 +28,7 @@ urlpatterns = [
     path("houseboard/daybuddy/qr", cal_views.daybuddy_qr, name="db_qr"),
     path("houseboard/daybuddy/nhl/rangers/schedule", cal_views.rangers_schedule, name="rangers-schedule"),
     path("houseboard/daybuddy/nfl/schedule", cal_views.nfl_schedule, name="nfl-schedule"),
+    path("houseboard/daybuddy/nfl/schedule/edit/", cal_views.nfl_schedule_edit, name="nfl-schedule-edit"),
     path("houseboard/daybuddy/photos/archive", cal_views.photo_archive, name="photo_archive"),
     path("api/houseboard/temps_ingest/", temps_views.temps_ingest, name="hb-temps-ingest"),
     path("api/houseboard/house_temps/", daybuddy_views.house_temps, name="house_temps"),

@@ -1,0 +1,222 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DayBuddy – NFL Schedule Editor</title>
+    <style>
+      body { background:#050711; color:#f5f7ff; font-family:system-ui, -apple-system, BlinkMacSystemFont, sans-serif; margin:0; padding:24px; }
+      .card { max-width:1100px; margin:0 auto; background:#111522; border-radius:12px; padding:16px 18px 20px; border:1px solid #262d45; box-shadow:0 18px 40px rgba(0,0,0,0.45); }
+      h1 { margin:0 0 4px; font-size:22px; }
+      .row { margin-bottom:6px; font-size:13px; opacity:.8; }
+      .badges { display:flex; gap:8px; margin:8px 0 10px; flex-wrap:wrap; }
+      .badge { font-size:11px; padding:4px 8px; border-radius:999px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); opacity:0.9; }
+      .error { color:#ff9c9c; margin-bottom:8px; font-size:14px; }
+      .message { color:#9ff7c2; margin-bottom:8px; font-size:14px; }
+
+      .table-wrapper { margin-top:8px; max-height:70vh; overflow:auto; border-radius:10px; border:1px solid #262d45; background:#050814; }
+      table { border-collapse:collapse; width:100%; font-size:12px; min-width:720px; }
+      thead { position:sticky; top:0; z-index:5; }
+      thead th { background:#181c33; position:sticky; top:0; padding:6px 8px; text-align:left; font-weight:600; border-bottom:1px solid #30385a; white-space:nowrap; }
+      tbody tr:nth-child(even) { background:#090d1a; }
+      tbody tr:nth-child(odd) { background:#050814; }
+      td { padding:3px 6px; border-bottom:1px solid #14182b; }
+      td:first-child, th:first-child { position:sticky; left:0; background:#151a30; box-shadow:2px 0 0 #14182b; }
+
+      input.cell-input { width:100%; box-sizing:border-box; border-radius:4px; border:1px solid rgba(255,255,255,0.08); padding:3px 5px; background:rgba(0,0,0,0.25); color:#f5f7ff; font-size:12px; font-family:inherit; }
+      input.cell-input:focus { outline:none; border-color:#5b8dff; box-shadow:0 0 0 1px rgba(91,141,255,0.7); }
+
+      .actions { margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13px; }
+      button { background:#1a2333; color:#f5f7ff; border:1px solid #2a3750; border-radius:999px; padding:7px 16px; font-weight:600; cursor:pointer; }
+      button:hover { background:#222d42; }
+      a { color:#8fb5ff; text-decoration:none; }
+      a:hover { text-decoration:underline; }
+      .hint { opacity:0.72; font-size:12px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>NFL Schedule CSV Editor</h1>
+      <div style="margin:12px 0; padding:12px; background:#0d1222; border:1px solid #2a314a; border-radius:10px;">
+        <div style="font-size:14px; font-weight:600; margin-bottom:6px;">Local TV Schedule Links</div>
+        <div style="display:flex; flex-direction:row; flex-wrap:wrap; gap:16px; font-size:13px; align-items:center;">
+          <a href="https://www.cbsnews.com/newyork/program-guide/" target="_blank" style="color:#8fb5ff;">📺 CBS New York</a>
+          <a href="https://www.nbcnewyork.com/tv-schedule/" target="_blank" style="color:#8fb5ff;">📺 NBC New York</a>
+          <a href="https://www.fox5ny.com/whats-on-fox-5" target="_blank" style="color:#8fb5ff;">📺 FOX New York</a>
+          <a href="https://abc7ny.com/tvlistings/" target="_blank" style="color:#8fb5ff;">📺 ABC New York</a>
+        </div>
+      </div>
+      <div class="row">File: {{ csv_path }}</div>
+      <div class="badges">
+        <div class="badge">Match Number</div>
+        <div class="badge">Round Number</div>
+        <div class="badge">Date (with time)</div>
+        <div class="badge">Location</div>
+        <div class="badge">Home / Away Teams</div>
+        <div class="badge">Result</div>
+        <div class="badge">Broadcast</div>
+      </div>
+
+      {% if error %}
+        <div class="error">{{ error }}</div>
+      {% endif %}
+      {% if message %}
+        <div class="message">{{ message }}</div>
+      {% endif %}
+
+      <form method="post" onsubmit="syncCsvBeforeSubmit()">
+        {% csrf_token %}
+
+        <!-- Hidden raw CSV field that the view reads/writes -->
+        <textarea id="csv_raw" name="csv_text" style="display:none;">{{ csv_text|escape }}</textarea>
+
+        <div class="table-wrapper">
+          <table id="csvTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="actions">
+          <button type="submit">Save CSV</button>
+          <a href="/houseboard/daybuddy/week/">← Back to Week View</a>
+          <span class="hint">Edits in the table will be converted back to CSV when you click Save.</span>
+        </div>
+      </form>
+    </div>
+
+    <script>
+      function parseCsv(text) {
+        if (!text) {
+          return { headers: [], rows: [] };
+        }
+        const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter(line => line.trim().length > 0);
+        if (lines.length === 0) {
+          return { headers: [], rows: [] };
+        }
+        const headers = lines[0].split(",");
+        const rows = lines.slice(1).map(line => line.split(","));
+        return { headers, rows };
+      }
+
+      function buildTableFromCsv() {
+        const rawEl = document.getElementById("csv_raw");
+        const table = document.getElementById("csvTable");
+        if (!rawEl || !table) return;
+
+        const thead = table.querySelector("thead");
+        const tbody = table.querySelector("tbody");
+        thead.innerHTML = "";
+        tbody.innerHTML = "";
+
+        const data = parseCsv(rawEl.value);
+        const headers = data.headers;
+        const rows = data.rows;
+
+        if (headers.length === 0) {
+          return;
+        }
+
+        const headRow = document.createElement("tr");
+        headers.forEach(h => {
+          const th = document.createElement("th");
+          th.textContent = h.trim();
+          headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+
+        rows.forEach((row, rowIdx) => {
+          const tr = document.createElement("tr");
+          headers.forEach((_, colIdx) => {
+            const td = document.createElement("td");
+            if (headers[colIdx].trim().toLowerCase() === "broadcast") {
+              const select = document.createElement("select");
+              select.className = "cell-input";
+              select.setAttribute("data-row", rowIdx);
+              select.setAttribute("data-col", colIdx);
+
+              const options = ["CBS", "NBC", "FOX", "ABC", "ESPN", "YouTube", "Other", ""];
+              options.forEach(opt => {
+                const o = document.createElement("option");
+                o.value = opt;
+                o.textContent = opt === "" ? "(blank)" : opt;
+                if ((row[colIdx] || "").trim().toLowerCase() === opt.toLowerCase()) {
+                  o.selected = true;
+                }
+                select.appendChild(o);
+              });
+
+              td.appendChild(select);
+            } else {
+              const input = document.createElement("input");
+              input.type = "text";
+              input.className = "cell-input";
+              input.value = (row[colIdx] || "").trim();
+              input.setAttribute("data-row", rowIdx);
+              input.setAttribute("data-col", colIdx);
+              td.appendChild(input);
+            }
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+      }
+
+      function csvEscape(value) {
+        if (value === null || value === undefined) return "";
+        const needsQuotes = /[",\n]/.test(value);
+        let v = String(value).replace(/"/g, '""');
+        return needsQuotes ? '"' + v + '"' : v;
+      }
+
+      function syncCsvBeforeSubmit() {
+        const table = document.getElementById("csvTable");
+        const rawEl = document.getElementById("csv_raw");
+        if (!table || !rawEl) return true; // let submit continue
+
+        const headers = Array.from(table.querySelectorAll("thead th")).map(th => th.textContent.trim());
+        const rows = [];
+        const trList = Array.from(table.querySelectorAll("tbody tr"));
+
+        trList.forEach(tr => {
+          const cells = [];
+          const cellsElems = Array.from(tr.querySelectorAll(".cell-input"));
+          cellsElems.forEach(elem => {
+            cells.push(csvEscape(elem.value || ""));
+          });
+          rows.push(cells.join(","));
+        });
+
+        const headerLine = headers.join(",");
+        rawEl.value = [headerLine].concat(rows).join("\n");
+        try {
+          const wrapper = document.querySelector(".table-wrapper");
+          if (wrapper && window.sessionStorage) {
+            sessionStorage.setItem("nfl_edit_scroll", String(wrapper.scrollTop));
+          }
+        } catch (e) {
+          // ignore scroll persistence errors
+        }
+        return true; // allow the form submit
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        buildTableFromCsv();
+        try {
+          const wrapper = document.querySelector(".table-wrapper");
+          if (wrapper && window.sessionStorage) {
+            const saved = sessionStorage.getItem("nfl_edit_scroll");
+            if (saved !== null) {
+              const offset = parseInt(saved, 10);
+              if (!isNaN(offset)) {
+                wrapper.scrollTop = offset;
+              }
+            }
+          }
+        } catch (e) {
+          // ignore scroll persistence errors
+        }
+      });
+    </script>
+  </body>
+</html>

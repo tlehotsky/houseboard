@@ -22,7 +22,7 @@ def _read_cal_sources():
 
 from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 
 import requests
@@ -401,36 +401,73 @@ def rangers_schedule(request):
     return JsonResponse({"games": games_out})
 
 
-# --- NFL schedule edit placeholder view ---
-@require_http_methods(["GET"])
+ # --- NFL schedule editor view (CSV text editor with backups) ---
+@require_http_methods(["GET", "POST"])
 def nfl_schedule_edit(request):
     """
-    Temporary placeholder page for editing the NFL schedule CSV.
+    Simple CSV editor for the NFL schedule.
 
-    This exists so that the URL pattern
-    `path("houseboard/daybuddy/nfl/schedule/edit/", cal_views.nfl_schedule_edit, ...)`
-    can safely resolve without breaking the rest of DayBuddy.
+    - GET: show the current CSV contents in a textarea.
+    - POST: save new contents and create a timestamped backup of the previous file.
+
+    This uses the same NFL CSV that nfl_schedule() reads via _find_nfl_csv().
     """
-    return HttpResponse(
-        "<!doctype html>"
-        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-        "<title>DayBuddy – NFL Schedule Editor</title>"
-        "<body style='background:#050711;color:#f5f7ff;font-family:system-ui;"
-        "margin:0;padding:24px'>"
-        "<div style='max-width:720px;margin:0 auto;'>"
-        "<h1 style='margin:0 0 12px 0;font-size:24px;'>NFL Schedule Editor</h1>"
-        "<p style='opacity:.85;font-size:15px;line-height:1.5;'>"
-        "This is a placeholder page for the future NFL schedule CSV editor. "
-        "The main DayBuddy dashboard should continue to work normally."
-        "</p>"
-        "<p style='margin-top:18px;font-size:14px;'>"
-        "<a href='/houseboard/daybuddy/week/' "
-        "style='color:#8fb5ff;text-decoration:none;'>"
-        "← Back to Week View</a>"
-        "</p>"
-        "</div>"
-        "</body>"
-    )
+    csv_path = _find_nfl_csv()
+    # If we didn't find an existing file, default to the primary path so we
+    # know where to create it when the user hits Save.
+    if csv_path is None:
+        csv_path = Path("/srv/daybuddy/data/nfl_2025_full.csv")
+
+    error = None
+    message = None
+
+    if request.method == "POST":
+        csv_text = request.POST.get("csv_text", "")
+
+        if not csv_text.strip():
+            error = "CSV text cannot be empty."
+        else:
+            try:
+                # 1) Make a timestamped backup of the existing file (if it exists)
+                if csv_path.exists():
+                    ts = timezone.now().strftime("%Y%m%d-%H%M%S")
+                    backup_path = csv_path.with_suffix(csv_path.suffix + f".bak.{ts}")
+                    backup_path.write_text(csv_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+                # Ensure parent directory exists
+                csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # 2) Write the new contents
+                csv_path.write_text(csv_text, encoding="utf-8")
+                message = "NFL CSV saved successfully (backup created)."
+
+                # Store a flash message in the session and redirect to avoid repost
+                request.session["nfl_csv_message"] = message
+                return redirect(request.path)
+
+            except Exception as exc:
+                error = f"Error saving CSV: {exc}"
+
+    # GET (or POST with an error): load whatever is on disk
+    try:
+        csv_text = csv_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        # Seed with a header row if this is the first time
+        csv_text = "Match Number,Round Number,Date,Location,Home Team,Away Team,Result,Broadcast\n"
+
+    # Pull any flash message from the session if we don't already have an error
+    if not error:
+        session_msg = request.session.pop("nfl_csv_message", None)
+        if session_msg:
+            message = session_msg
+
+    ctx = {
+        "csv_text": csv_text,
+        "csv_path": str(csv_path),
+        "error": error,
+        "message": message,
+    }
+    return render(request, "daybuddy/nfl_edit.html", ctx)
 
 
 def _find_nfl_csv():
