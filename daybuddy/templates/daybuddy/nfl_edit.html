@@ -70,6 +70,13 @@
         <!-- Hidden raw CSV field that the view reads/writes -->
         <textarea id="csv_raw" name="csv_text" style="display:none;">{{ csv_text|escape }}</textarea>
 
+        <div class="row" style="margin-top:8px; display:flex; gap:8px; align-items:center; font-size:13px;">
+          <label for="weekFilter">Filter by Week:</label>
+          <select id="weekFilter" style="padding:4px 8px; border-radius:6px; border:1px solid #2a3750; background:#050814; color:#f5f7ff; font-size:13px;">
+            <option value="">All weeks</option>
+          </select>
+        </div>
+
         <div class="table-wrapper">
           <table id="csvTable">
             <thead></thead>
@@ -121,13 +128,28 @@
         headers.forEach(h => {
           const th = document.createElement("th");
           const name = h.trim();
+          th.setAttribute("data-original-header", name);
           th.textContent = (name.toLowerCase() === "round number") ? "Week Number" : name;
           headRow.appendChild(th);
         });
         thead.appendChild(headRow);
 
+        const weekFilter = document.getElementById("weekFilter");
+        const weekSet = new Set();
+        const roundIdx = headers.findIndex(h => h.trim().toLowerCase() === "round number");
+
         rows.forEach((row, rowIdx) => {
           const tr = document.createElement("tr");
+
+          let weekVal = "";
+          if (roundIdx >= 0) {
+            weekVal = (row[roundIdx] || "").trim();
+            if (weekVal) {
+              weekSet.add(weekVal);
+              tr.setAttribute("data-week", weekVal);
+            }
+          }
+
           headers.forEach((_, colIdx) => {
             const td = document.createElement("td");
             if (headers[colIdx].trim().toLowerCase() === "broadcast") {
@@ -161,6 +183,57 @@
           });
           tbody.appendChild(tr);
         });
+
+        // Populate the week filter dropdown
+        if (weekFilter) {
+          const currentValue = weekFilter.value;
+          weekFilter.innerHTML = "";
+          const optAll = document.createElement("option");
+          optAll.value = "";
+          optAll.textContent = "All weeks";
+          weekFilter.appendChild(optAll);
+
+          Array.from(weekSet)
+            .sort((a, b) => {
+              const na = parseInt(a, 10);
+              const nb = parseInt(b, 10);
+              if (!isNaN(na) && !isNaN(nb)) return na - nb;
+              return String(a).localeCompare(String(b));
+            })
+            .forEach(week => {
+              const o = document.createElement("option");
+              o.value = week;
+              o.textContent = "Week " + week;
+              weekFilter.appendChild(o);
+            });
+
+          if (currentValue && Array.from(weekFilter.options).some(o => o.value === currentValue)) {
+            weekFilter.value = currentValue;
+          } else {
+            weekFilter.value = "";
+          }
+        }
+
+        // Apply current filter (if any)
+        filterRowsByWeek();
+      }
+
+      function filterRowsByWeek() {
+        const table = document.getElementById("csvTable");
+        const weekFilter = document.getElementById("weekFilter");
+        if (!table || !weekFilter) return;
+
+        const value = weekFilter.value.trim();
+        const rows = Array.from(table.querySelectorAll("tbody tr"));
+
+        rows.forEach(tr => {
+          const weekVal = (tr.getAttribute("data-week") || "").trim();
+          if (!value || !weekVal) {
+            tr.style.display = "";
+          } else {
+            tr.style.display = (weekVal === value) ? "" : "none";
+          }
+        });
       }
 
       function csvEscape(value) {
@@ -175,7 +248,7 @@
         const rawEl = document.getElementById("csv_raw");
         if (!table || !rawEl) return true; // let submit continue
 
-        const headers = Array.from(table.querySelectorAll("thead th")).map(th => th.textContent.trim());
+        const headers = Array.from(table.querySelectorAll("thead th")).map(th => th.getAttribute("data-original-header") || th.textContent.trim());
         const rows = [];
         const trList = Array.from(table.querySelectorAll("tbody tr"));
 
@@ -228,6 +301,10 @@
 
       document.addEventListener("DOMContentLoaded", function () {
         buildTableFromCsv();
+        const weekFilter = document.getElementById("weekFilter");
+        if (weekFilter) {
+          weekFilter.addEventListener("change", filterRowsByWeek);
+        }
         try {
           const wrapper = document.querySelector(".table-wrapper");
           if (wrapper && window.sessionStorage) {
