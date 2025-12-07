@@ -526,6 +526,18 @@ def nfl_schedule(request):
                 return "local"
         return "other"
 
+    def _short_team(name: str) -> str:
+        """
+        Reduce a full team name like 'Chicago Bears' or 'New York Jets'
+        down to just the nickname ('Bears', 'Jets'). We simply take the
+        last whitespace-separated word, which works for all current NFL
+        team names.
+        """
+        if not name:
+            return ""
+        parts = str(name).strip().split()
+        return parts[-1] if parts else ""
+
     with csv_path.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -563,18 +575,22 @@ def nfl_schedule(request):
             home = (row.get("Home Team") or row.get("home_team") or row.get("Home") or "").strip()
             away = (row.get("Away Team") or row.get("away_team") or row.get("Away") or "").strip()
 
-            # Prefer explicit Home/Away names from the CSV
+            # Prefer explicit Home/Away names from the CSV, but shorten to just nicknames
             if home and away:
-                opponent = f"{away} at {home}"
+                away_short = _short_team(away)
+                home_short = _short_team(home)
+                opponent = f"{away_short} at {home_short}"
             else:
-                # Fallbacks if ever needed
-                opponent = (
-                    (row.get("opponent") or "").strip()
-                    or (row.get("Matchup") or "").strip()
-                    or home
-                    or away
-                    or "Game"
-                )
+                # Fallbacks if ever needed; try to shorten when possible
+                raw_opponent = (row.get("opponent") or "").strip() or (row.get("Matchup") or "").strip()
+                if raw_opponent and " at " in raw_opponent:
+                    # Try to shorten both sides of an "X at Y" string
+                    left, right = raw_opponent.split(" at ", 1)
+                    opponent = f"{_short_team(left)} at {_short_team(right)}"
+                else:
+                    # Last-resort: fall back to any single team string and shorten it
+                    fallback_team = raw_opponent or home or away
+                    opponent = _short_team(fallback_team) if fallback_team else "Game"
 
             # Time-of-day label from the CSV datetime (e.g. "1:00 PM")
             try:
