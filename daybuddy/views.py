@@ -460,173 +460,167 @@ def nfl_schedule(request):
                     "date": "2025-12-04",
                     "day_label": "Thu",
                     "date_label": "12/4",
-                    "opponent": "SEA @ DAL",
-                    "status": "8:15 PM",
+                    "opponent": "SEA at DAL",
+                    "time_label": "8:15 PM",
+                    "status": "24 - 20",
                     "broadcast_class": "prime|youtube|local|other",
                     "slot": "morning|afternoon|evening"
                 },
                 ...
             ]
         }
+
+    It is tailored for fixturedownload.com CSVs like
+    nfl-2025-UTC.csv which use a `Date` column of the form
+    `dd/mm/YYYY HH:MM` in UTC plus `Home Team`, `Away Team`,
+    `Location`, `Result`, and `Broadcast` columns.
     """
     csv_path = _find_nfl_csv()
-    if not csv_path:
+    if not csv_path or not csv_path.exists():
         # No file available – just return an empty list so the card
         # shows "No NFL games…" instead of a 500.
         return JsonResponse({"games": []})
 
+    today = timezone.localdate()
+    window_end = today + datetime.timedelta(days=7)
 
+    games_out = []
 
-
-
-    try:
-        import csv
-        from datetime import datetime, timedelta
-
-        today = timezone.localdate()
-        window_end = today + timedelta(days=7)
-
-        def parse_date(raw: str):
-            if not raw:
-                return None
-            raw_str = raw.strip()
-            # Try a variety of common formats used by public NFL CSVs
-            formats = (
-                "%Y-%m-%d",   # 2025-12-04
-                "%Y/%m/%d",   # 2025/12/04
-                "%m/%d/%Y",   # 12/04/2025 (US style)
-                "%m/%d/%y",   # 12/04/25   (US style, short year)
-                "%d/%m/%Y",   # 04/12/2025 (EU style)
-                "%d/%m/%y",   # 04/12/25   (EU style, short year)
-                "%d-%b-%Y",   # 4-Dec-2025
-                "%d %b %Y",   # 4 Dec 2025
-            )
-            for fmt in formats:
-                try:
-                    return datetime.strptime(raw_str, fmt).date()
-                except ValueError:
-                    continue
+    # Helper to parse the fixturedownload-style Date field
+    def _parse_kickoff(raw: str):
+        if not raw:
             return None
-
-        def classify_slot(time_str: str) -> str:
-            """
-            Roughly bucket the kickoff time into morning / afternoon / evening.
-
-            Fallback is 'afternoon' so we at least get a neutral colour.
-            """
-            if not time_str:
-                return "afternoon"
-            s = time_str.strip().lower()
-            # normalise things like "1:00 PM" / "1:00pm" / "1pm"
-            s = s.replace(" ", "")
-            m = re.match(r"^(\d{1,2})(?::(\d{2}))?([ap])m?$", s)
-            if not m:
-                return "afternoon"
-            hour = int(m.group(1))
-            minute = int(m.group(2) or "0")  # noqa: F841  # kept for completeness / future use
-            ap = m.group(3)
-            hour = hour % 12 + (12 if ap == "p" else 0)
-            # Treat < 13:00 as "morning", 13:00–17:59 as "afternoon",
-            # and 18:00+ as "evening".
-            if hour < 13:
-                return "morning"
-            if hour < 18:
-                return "afternoon"
-            return "evening"
-
-        def classify_broadcast(row: dict) -> str:
-            """
-            Map whatever broadcast text we have into one of:
-                local, youtube, prime, other
-            """
-            text = ""
-            # Try a couple of likely field names.
-            for key in ("broadcast_class", "broadcast", "tv", "network"):
-                for k in (key, key.upper(), key.capitalize()):
-                    if k in row and row[k]:
-                        text = str(row[k]).lower()
-                        break
-                if text:
-                    break
-
-            if not text:
-                return "other"
-            if "prime" in text or "tnf" in text:
-                return "prime"
-            if "youtube" in text or "yt " in text or "ytv" in text:
-                return "youtube"
-            # Treat “fox”, “cbs”, “nbc”, “abc”, “espn” as “local-ish”
-            # for our purposes – they’ll get the “L” tag on the card.
-            for key in ("fox", "cbs", "nbc", "abc", "espn"):
-                if key in text:
-                    return "local"
-            return "other"
-
-        games_out = []
-
-        with open(csv_path, newline="") as f:
-            reader = csv.DictReader(f)
-            # normalise header keys to make lookups forgiving
-            header_map = {name.lower(): name for name in (reader.fieldnames or [])}
-
-            def get(row, key, default=""):
-                # prefer exact lower-case match, then original key.
-                k = header_map.get(key.lower())
-                if k and k in row and row[k]:
-                    return row[k]
-                # allow directly-named columns (e.g. already lower-case)
-                return row.get(key, default)
-
-            for row in reader:
-                raw_date = get(row, "date") or get(row, "Date")
-                d = parse_date(raw_date)
-                if not d:
-                    continue
-                if d < today or d > window_end:
-                    continue
-
-                # Build labels
-                day_label = d.strftime("%a")          # Mon, Tue…
-                date_label = f"{d.month}/{d.day}"    # 12/4
-
-                opponent = (
-                    get(row, "opponent")
-                    or get(row, "matchup")
-                    or get(row, "game")
-                    or ""
-                )
-                status = (
-                    get(row, "status")
-                    or get(row, "time")
-                    or get(row, "TimeET")
-                    or ""
-                )
-                broadcast_class = classify_broadcast(row)
-                slot = get(row, "slot") or classify_slot(status)
-
-                games_out.append(
-                    {
-                        "date": d.isoformat(),
-                        "day_label": day_label,
-                        "date_label": date_label,
-                        "opponent": opponent,
-                        "status": status,
-                        "broadcast_class": broadcast_class,
-                        "slot": slot,
-                    }
-                )
-
-        # Sort by date so the front-end can just group by date string.
-        games_out.sort(key=lambda g: (g["date"], g.get("status") or ""))
-
-        return JsonResponse({"games": games_out})
-    except Exception as e:
-        # Defensive: never leak HTML traceback to the client; always emit JSON.
-        return JsonResponse(
-            {"games": [], "error": str(e)},
-            status=500,
-            json_dumps_params={"indent": 2},
+        raw_str = raw.strip()
+        # Try a few common patterns that include time. The primary
+        # one for nfl-2025-UTC.csv is "%d/%m/%Y %H:%M".
+        fmts = (
+            "%d/%m/%Y %H:%M",   # 05/09/2025 00:20
+            "%d/%m/%y %H:%M",
+            "%Y-%m-%d %H:%M",   # 2025-09-05 00:20
+            "%Y-%m-%dT%H:%M",
+            "%m/%d/%Y %H:%M",   # 09/05/2025 20:20 (US style)
+            "%m/%d/%y %H:%M",
+            "%Y-%m-%d",         # date-only fallbacks
+            "%d/%m/%Y",
+            "%m/%d/%Y",
         )
+        for fmt in fmts:
+            try:
+                return datetime.datetime.strptime(raw_str, fmt)
+            except ValueError:
+                continue
+        return None
+
+    # Classify TV / streaming into the small set of tags the frontend
+    # expects: local, youtube, prime, other.
+    def _classify_broadcast(text: str) -> str:
+        t = (text or "").strip().lower()
+        if not t:
+            return "other"
+        if "prime" in t or "amazon" in t or "tnf" in t:
+            return "prime"
+        if "youtube" in t:
+            return "youtube"
+        for key in ("fox", "cbs", "nbc", "abc", "espn"):
+            if key in t:
+                return "local"
+        return "other"
+
+    with csv_path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            raw_dt = (row.get("Date") or row.get("date") or "").strip()
+            if not raw_dt:
+                continue
+
+            dt_naive = _parse_kickoff(raw_dt)
+            if not dt_naive:
+                # Skip rows we can't parse instead of crashing
+                continue
+
+            # The fixturedownload CSV we pulled is in UTC (e.g. "nfl-2025-UTC"),
+            # so interpret the parsed datetime as UTC and convert it to the
+            # local Django timezone (America/New_York in your settings).
+            try:
+                import datetime as _dtmod
+                dt_utc = dt_naive.replace(tzinfo=_dtmod.timezone.utc)
+                local_tz = timezone.get_default_timezone()
+                dt_local = dt_utc.astimezone(local_tz)
+            except Exception:
+                # If anything goes wrong with tz handling, fall back to naive
+                dt_local = dt_naive
+
+            game_date = dt_local.date()
+
+            # Limit to the next ~7 days window
+            if not (today <= game_date <= window_end):
+                continue
+
+            # --- Build friendly labels ---
+            day_label = game_date.strftime("%a")  # Sun, Mon, ...
+            date_label = f"{game_date.month}/{game_date.day}"
+
+            home = (row.get("Home Team") or row.get("home_team") or row.get("Home") or "").strip()
+            away = (row.get("Away Team") or row.get("away_team") or row.get("Away") or "").strip()
+
+            # Prefer explicit Home/Away names from the CSV
+            if home and away:
+                opponent = f"{away} at {home}"
+            else:
+                # Fallbacks if ever needed
+                opponent = (
+                    (row.get("opponent") or "").strip()
+                    or (row.get("Matchup") or "").strip()
+                    or home
+                    or away
+                    or "Game"
+                )
+
+            # Time-of-day label from the CSV datetime (e.g. "1:00 PM")
+            try:
+                time_label = dt_local.strftime("%-I:%M %p")
+            except Exception:
+                # Windows / non-GNU strftime fallback (just in case)
+                time_label = dt_local.strftime("%I:%M %p").lstrip("0")
+
+            # Coarse slot classification used for card colours
+            hour = dt_local.hour
+            if hour < 13:
+                slot = "morning"
+            elif hour < 18:
+                slot = "afternoon"
+            else:
+                slot = "evening"
+
+            broadcast_raw = (
+                row.get("Broadcast")
+                or row.get("broadcast")
+                or row.get("TV")
+                or row.get("Network")
+                or ""
+            )
+            broadcast_class = _classify_broadcast(broadcast_raw)
+
+            # Use Result as a status string for now (e.g. "24 - 20")
+            status = (row.get("Result") or "").strip()
+
+            games_out.append(
+                {
+                    "date": game_date.isoformat(),
+                    "day_label": day_label,
+                    "date_label": date_label,
+                    "opponent": opponent,
+                    "time_label": time_label,
+                    "status": status,
+                    "broadcast_class": broadcast_class,
+                    "slot": slot,
+                }
+            )
+
+    # Sort games by date and time so the JS can just group by date
+    games_out.sort(key=lambda g: (g["date"], g.get("time_label") or ""))
+
+    return JsonResponse({"games": games_out})
 def healthz(_request):
     return HttpResponse("ok")
 

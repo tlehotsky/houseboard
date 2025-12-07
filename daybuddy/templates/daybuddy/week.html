@@ -1794,7 +1794,11 @@ async function loadNFLSchedule(){
       const meta = day.meta;
       parts.push('<div class="nfl-day">');
       parts.push(
-        `<div class="day-label">${meta.day_label || ''} ${meta.date_label || ''}</div>`
+        `<div class="day-label">${
+          meta.day_label || meta.weekday_label || ''
+        } ${
+          meta.date_label || meta.date || meta.iso_date || ''
+        }</div>`
       );
 
       if (!day.list.length) {
@@ -1811,17 +1815,64 @@ async function loadNFLSchedule(){
           return 0;
         });
 
-        // for line starts here
         for (const g of ordered) {
           const slotClass = g.slot ? ` ${g.slot}` : '';
-          const opp = g.opponent || '';
-          const status = g.status ? ` (${g.status})` : '';
+
+          // Try to build a readable matchup string from several possible fields
+          const home =
+            g.home_team ||
+            g.home ||
+            g.home_name ||
+            g.home_full ||
+            g["Home Team"] ||
+            '';
+          const away =
+            g.away_team ||
+            g.away ||
+            g.away_name ||
+            g.away_full ||
+            g["Away Team"] ||
+            '';
+          const teamsField = g.teams || g.matchup || g.game_label || '';
+          const titleField =
+            g.title || g.label || g.summary || g.name || g.description || '';
+
+          // Prefer explicit opponent/teams/labels from the backend
+          let opp = g.opponent || teamsField || titleField;
+
+          if (!opp) {
+            if (home && away) {
+              const ha = g.home_away || g.side || '';
+              if (ha === 'home') {
+                // Home game: opponent AT us
+                opp = `${away} @ ${home}`;
+              } else if (ha === 'away') {
+                // Away game: we are AT opponent
+                opp = `${home} vs ${away}`;
+              } else {
+                opp = `${away} at ${home}`;
+              }
+            } else {
+              // Last-resort fallback: show whatever team name we have, otherwise "Game"
+              opp = home || away || 'Game';
+            }
+          }
+
+          // Build a status string with time / extra info when present
+          const timeLabel =
+            g.time_label || g.kickoff_label || g.time || g.kickoff || '';
+          const extraLabel = g.status || g.note || g.channel || '';
+          const statusParts = [];
+          if (timeLabel) statusParts.push(timeLabel);
+          if (extraLabel) statusParts.push(extraLabel);
+          const status = statusParts.length ? ` (${statusParts.join(' • ')})` : '';
+
           // Map broadcast_class → display letter
           const bc = g.broadcast_class || '';
           const tag = (bc === 'local') ? 'L'
                     : (bc === 'prime') ? 'P'
-                    : (bc === 'youtube') ? 'Y'     // YouTube TV is also streaming
-                    : 'O';
+                    : (bc === 'youtube') ? 'Y'     // YouTube TV / streaming
+                    : 'O';                          // Other / unknown
 
           const isNoGame = opp.toLowerCase().includes('no game');
 
@@ -1831,13 +1882,12 @@ async function loadNFLSchedule(){
               `<div class="nogame">${opp}${status}</div>`
             );
           } else {
-            // Normal games keep the L / Y / P / O prefix
+            // Normal games keep the L / Y / P / O prefix and show matchup text
             parts.push(
               `<div class="game${slotClass}"><b>${tag}</b> ${opp}${status}</div>`
             );
           }
         }
-                //for line ends here
       }
 
       parts.push('</div>');
