@@ -120,7 +120,8 @@
         const headRow = document.createElement("tr");
         headers.forEach(h => {
           const th = document.createElement("th");
-          th.textContent = h.trim();
+          const name = h.trim();
+          th.textContent = (name.toLowerCase() === "round number") ? "Week Number" : name;
           headRow.appendChild(th);
         });
         thead.appendChild(headRow);
