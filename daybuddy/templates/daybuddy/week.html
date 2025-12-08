@@ -338,7 +338,7 @@ body::after{
     gap:8px;
   }
   .house-plan{
-    background:#94a0b9;        /* noticeably light gray so it no longer looks pure white */
+    background:transparent;        /* noticeably light gray so it no longer looks pure white */
     border-radius:8px;
     padding:4px 6px 6px;
     position:relative;
@@ -355,7 +355,8 @@ body::after{
     max-width:100%;
     height:auto;
     object-fit:contain;
-    background:#94a0b9;        /* ensures any transparent areas also show light gray */
+    background:transparent;        /* ensures any transparent areas also show light gray */
+    filter: invert(1);         /* invert black↔white to make linework pop on dark UI */
   }
   /* overlay layer on top of each floorplan image */
   .house-plan-overlay{
@@ -376,13 +377,13 @@ body::after{
     pointer-events:none;
   }
   .temp-marker.cold{
-    background:rgba(9, 79, 209, 0.9);
+    background:rgba(17, 97, 245, 0.9);
   }
   .temp-marker.hot{
-    background:rgba(154, 3, 3, 0.9);
+    background:rgba(237, 12, 12, 0.9);
   }
   .temp-marker.normal{
-    background:rgba(5, 101, 5, 0.9);  /* green mid-range */
+    background:rgba(7, 164, 7, 0.9);  /* green mid-range */
   }
 
 
