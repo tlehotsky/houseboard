@@ -596,17 +596,37 @@ body::after{
       </div>
       <div class="card" id="card-nfl">
         <h4 style="display:flex;justify-content:space-between;align-items:center;">
-
-
-          <span>NFL – Next 7 Days</span>
-          <span style="font-size:13px;opacity:.75;display:flex;gap:10px;">
-            <span style="margin-right:12px;">
-              L = Local &nbsp;&nbsp; Y = YouTube &nbsp;&nbsp; P = Prime &nbsp;&nbsp; O = Other
-            </span>            
-            <span><span style="color:#7fb6ff;">●</span> Early Afternoon</span>
-            <span><span style="color:#ffe48a;">●</span> Late Afternoon</span>
-            <span><span style="color:#ff9b9b;">●</span> Night/Evening</span>
+          <span style="display:flex;flex-direction:column;gap:4px;">
+            <span>NFL – Next 7 Days</span>
+            <span style="font-size:13px;opacity:.75;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <span style="margin-right:12px;">
+                L = Local &nbsp;&nbsp; Y = YouTube &nbsp;&nbsp; P = Prime &nbsp;&nbsp; O = Other
+              </span>
+              <span><span style="color:#7fb6ff;">●</span> Early Afternoon</span>
+              <span><span style="color:#ffe48a;">●</span> Late Afternoon</span>
+              <span><span style="color:#ff9b9b;">●</span> Night/Evening</span>
+            </span>
           </span>
+          <a
+            href="/houseboard/daybuddy/nfl/schedule/edit/"
+            target="_blank"
+            rel="noopener"
+            style="
+              font-size:12px;
+              padding:4px 10px;
+              border-radius:999px;
+              border:1px solid rgba(255,255,255,.25);
+              background:#1a2333;
+              color:#f2f5f9;
+              text-decoration:none;
+              box-shadow:0 2px 4px rgba(0,0,0,.4);
+              display:inline-flex;
+              align-items:center;
+              gap:6px;
+            "
+          >
+            <span>✏️ Edit schedule</span>
+          </a>
         </h4>
         <div id="nfl-sched">Coming soon</div>
         <img
