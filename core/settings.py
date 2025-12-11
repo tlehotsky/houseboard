@@ -124,7 +124,7 @@ STATIC_ROOT = "/var/www/houseboard/static"
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
-        "LOCATION": "/var/cache/houseboard",
+        "LOCATION": "houseboard-locmem-cache",
         "TIMEOUT": 300,  # 5 minutes
     }
 }
