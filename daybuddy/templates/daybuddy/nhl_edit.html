@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DayBuddy – NFL Schedule Editor</title>
+    <title>DayBuddy – NHL Schedule Editor</title>
     <style>
       body { background:#050711; color:#f5f7ff; font-family:system-ui, -apple-system, BlinkMacSystemFont, sans-serif; margin:0; padding:24px; }
       .card { max-width:1100px; margin:0 auto; background:#111522; border-radius:12px; padding:16px 18px 20px; border:1px solid #262d45; box-shadow:0 18px 40px rgba(0,0,0,0.45); }
@@ -38,24 +38,21 @@
   </head>
   <body>
     <div class="card">
-      <h1>NFL Schedule CSV Editor</h1>
+      <h1>NHL Schedule CSV Editor</h1>
       <div style="margin:12px 0; padding:12px; background:#0d1222; border:1px solid #2a314a; border-radius:10px;">
         <div style="font-size:14px; font-weight:600; margin-bottom:6px;">Local TV Schedule Links</div>
         <div style="display:flex; flex-direction:row; flex-wrap:wrap; gap:16px; font-size:13px; align-items:center;">
-          <a href="https://www.cbsnews.com/newyork/program-guide/" target="_blank" style="color:#8fb5ff;">📺 CBS New York</a>
-          <a href="https://www.nbcnewyork.com/tv-schedule/" target="_blank" style="color:#8fb5ff;">📺 NBC New York</a>
-          <a href="https://www.fox5ny.com/whats-on-fox-5" target="_blank" style="color:#8fb5ff;">📺 FOX New York</a>
-          <a href="https://abc7ny.com/tvlistings/" target="_blank" style="color:#8fb5ff;">📺 ABC New York</a>
+          <a href="https://www.msgnetworks.com/schedule/" target="_blank" style="color:#8fb5ff;">📺 MSG Schedule</a>
+          <a href="https://www.espn.com/watch/schedule/_/type/upcoming" target="_blank" style="color:#8fb5ff;">📺 ESPN Schedule</a>
         </div>
       </div>
       <div class="row">File: {{ csv_path }}</div>
       <div class="badges">
-        <div class="badge">Match Number</div>
-        <div class="badge">Round Number</div>
-        <div class="badge">Date (with time)</div>
-        <div class="badge">Location</div>
-        <div class="badge">Home / Away Teams</div>
-        <div class="badge">Result</div>
+        <div class="badge">Date (YYYY-MM-DD)</div>
+        <div class="badge">Time (e.g. 7:00 PM)</div>
+        <div class="badge">Opponent</div>
+        <div class="badge">Home / Away</div>
+        <div class="badge">Status</div>
         <div class="badge">Broadcast</div>
       </div>
 
@@ -71,13 +68,6 @@
 
         <!-- Hidden raw CSV field that the view reads/writes -->
         <textarea id="csv_raw" name="csv_text" style="display:none;">{{ csv_text|escape }}</textarea>
-
-        <div class="row" style="margin-top:8px; display:flex; gap:8px; align-items:center; font-size:13px;">
-          <label for="weekFilter">Filter by Week:</label>
-          <select id="weekFilter" style="padding:4px 8px; border-radius:6px; border:1px solid #2a3750; background:#050814; color:#f5f7ff; font-size:13px;">
-            <option value="">All weeks</option>
-          </select>
-        </div>
 
         <div class="table-wrapper">
           <table id="csvTable">
@@ -129,39 +119,24 @@
         const headRow = document.createElement("tr");
         headers.forEach(h => {
           const th = document.createElement("th");
-          const name = h.trim();
-          th.setAttribute("data-original-header", name);
-          th.textContent = (name.toLowerCase() === "round number") ? "Week Number" : name;
+          th.setAttribute("data-original-header", h.trim());
+          th.textContent = h.trim();
           headRow.appendChild(th);
         });
         thead.appendChild(headRow);
 
-        const weekFilter = document.getElementById("weekFilter");
-        const weekSet = new Set();
-        const roundIdx = headers.findIndex(h => h.trim().toLowerCase() === "round number");
-
         rows.forEach((row, rowIdx) => {
           const tr = document.createElement("tr");
-
-          let weekVal = "";
-          if (roundIdx >= 0) {
-            weekVal = (row[roundIdx] || "").trim();
-            if (weekVal) {
-              weekSet.add(weekVal);
-              tr.setAttribute("data-week", weekVal);
-            }
-          }
-
-
           headers.forEach((_, colIdx) => {
             const td = document.createElement("td");
-            if (headers[colIdx].trim().toLowerCase() === "broadcast") {
+            const headerName = (headers[colIdx] || "").trim().toLowerCase();
+            
+            if (headerName === "broadcast") {
               const select = document.createElement("select");
               select.className = "cell-input";
               select.setAttribute("data-row", rowIdx);
               select.setAttribute("data-col", colIdx);
-
-              const options = ["CBS", "NBC", "FOX", "ABC", "ESPN", "YouTube", "Prime", "Other", ""];
+              const options = ["MSG", "ESPN", "TNT", "ABC", "Other", ""];
               options.forEach(opt => {
                 const o = document.createElement("option");
                 o.value = opt;
@@ -171,9 +146,30 @@
                 }
                 select.appendChild(o);
               });
-
               td.appendChild(select);
-            } else {
+            } else if (
+              headerName === "home_away" ||
+              headerName === "home/away" ||
+              headerName === "homeaway" ||
+              headerName === "home / away"
+            ) {
+              const select = document.createElement("select");
+              select.className = "cell-input";
+              select.setAttribute("data-row", rowIdx);
+              select.setAttribute("data-col", colIdx);
+              const options = ["Home", "Away", ""];
+              options.forEach(opt => {
+                const o = document.createElement("option");
+                o.value = opt;
+                o.textContent = opt === "" ? "(blank)" : opt;
+                if ((row[colIdx] || "").trim().toLowerCase() === opt.toLowerCase()) {
+                  o.selected = true;
+                }
+                select.appendChild(o);
+              });
+              td.appendChild(select);
+            }
+            else {
               const input = document.createElement("input");
               input.type = "text";
               input.className = "cell-input";
@@ -186,62 +182,11 @@
           });
           tbody.appendChild(tr);
         });
-
-        // Populate the week filter dropdown
-        if (weekFilter) {
-          const currentValue = weekFilter.value;
-          weekFilter.innerHTML = "";
-          const optAll = document.createElement("option");
-          optAll.value = "";
-          optAll.textContent = "All weeks";
-          weekFilter.appendChild(optAll);
-
-          Array.from(weekSet)
-            .sort((a, b) => {
-              const na = parseInt(a, 10);
-              const nb = parseInt(b, 10);
-              if (!isNaN(na) && !isNaN(nb)) return na - nb;
-              return String(a).localeCompare(String(b));
-            })
-            .forEach(week => {
-              const o = document.createElement("option");
-              o.value = week;
-              o.textContent = "Week " + week;
-              weekFilter.appendChild(o);
-            });
-
-          if (currentValue && Array.from(weekFilter.options).some(o => o.value === currentValue)) {
-            weekFilter.value = currentValue;
-          } else {
-            weekFilter.value = "";
-          }
-        }
-
-        // Apply current filter (if any)
-        filterRowsByWeek();
-      }
-
-      function filterRowsByWeek() {
-        const table = document.getElementById("csvTable");
-        const weekFilter = document.getElementById("weekFilter");
-        if (!table || !weekFilter) return;
-
-        const value = weekFilter.value.trim();
-        const rows = Array.from(table.querySelectorAll("tbody tr"));
-
-        rows.forEach(tr => {
-          const weekVal = (tr.getAttribute("data-week") || "").trim();
-          if (!value || !weekVal) {
-            tr.style.display = "";
-          } else {
-            tr.style.display = (weekVal === value) ? "" : "none";
-          }
-        });
       }
 
       function csvEscape(value) {
         if (value === null || value === undefined) return "";
-        const needsQuotes = /[",\n]/.test(value);
+        const needsQuotes = /[\",\n]/.test(value);
         let v = String(value).replace(/"/g, '""');
         return needsQuotes ? '"' + v + '"' : v;
       }
@@ -266,34 +211,17 @@
 
         const headerLine = headers.join(",");
         rawEl.value = [headerLine].concat(rows).join("\n");
+        
         try {
           const wrapper = document.querySelector(".table-wrapper");
           if (wrapper && window.sessionStorage) {
-            // Save scroll position
-            sessionStorage.setItem("nfl_edit_scroll", String(wrapper.scrollTop));
-
-            // Save the row index the user was working on (if any)
+            sessionStorage.setItem("nhl_edit_scroll", String(wrapper.scrollTop));
             const active = document.activeElement;
-            let rowIndexToSave = null;
             if (active && active.classList && active.classList.contains("cell-input")) {
-              rowIndexToSave = active.getAttribute("data-row");
-            } else {
-              // Fallback: first visible row in the viewport
-              const rows = Array.from(wrapper.querySelectorAll("tbody tr"));
-              for (const r of rows) {
-                const rect = r.getBoundingClientRect();
-                const wrapperRect = wrapper.getBoundingClientRect();
-                if (rect.bottom > wrapperRect.top) {
-                  const firstCellInput = r.querySelector(".cell-input");
-                  if (firstCellInput) {
-                    rowIndexToSave = firstCellInput.getAttribute("data-row");
-                  }
-                  break;
-                }
+              const rowIndexToSave = active.getAttribute("data-row");
+              if (rowIndexToSave !== null) {
+                sessionStorage.setItem("nhl_edit_row_index", String(rowIndexToSave));
               }
-            }
-            if (rowIndexToSave !== null) {
-              sessionStorage.setItem("nfl_edit_row_index", String(rowIndexToSave));
             }
           }
         } catch (e) {
@@ -304,24 +232,20 @@
 
       document.addEventListener("DOMContentLoaded", function () {
         buildTableFromCsv();
-        const weekFilter = document.getElementById("weekFilter");
-        if (weekFilter) {
-          weekFilter.addEventListener("change", filterRowsByWeek);
-        }
         try {
           const wrapper = document.querySelector(".table-wrapper");
           if (wrapper && window.sessionStorage) {
-            const savedRow = sessionStorage.getItem("nfl_edit_row_index");
+            const savedRow = sessionStorage.getItem("nhl_edit_row_index");
             if (savedRow !== null) {
               const targetInput = wrapper.querySelector('.cell-input[data-row="' + savedRow + '"]');
               if (targetInput && targetInput.scrollIntoView) {
                 targetInput.scrollIntoView({ block: "center" });
                 targetInput.focus();
-                return; // we've restored position based on row
+                return;
               }
             }
 
-            const savedScroll = sessionStorage.getItem("nfl_edit_scroll");
+            const savedScroll = sessionStorage.getItem("nhl_edit_scroll");
             if (savedScroll !== null) {
               const offset = parseInt(savedScroll, 10);
               if (!isNaN(offset)) {
