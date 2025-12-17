@@ -319,12 +319,15 @@
       }
 
       function formatLocalForDisplay(dateObj, formatStyle, hasSeconds) {
-        // Display in the user’s local timezone, but keep the CSV's date ordering.
-        // NOTE: We intentionally do NOT display seconds (even if the CSV has them).
+        // Display in the user’s local timezone.
+        // NOTE: This is display-only formatting; saving still uses UTC in the original CSV style.
         const y = dateObj.getFullYear();
-        const m = pad2(dateObj.getMonth() + 1);
-        const d = pad2(dateObj.getDate());
+        const day = dateObj.getDate();
         const mi = pad2(dateObj.getMinutes());
+
+        // Month short name (stable, en-US style)
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const mon = monthNames[dateObj.getMonth()];
 
         // 12-hour time with AM/PM (no leading zero on hour)
         const hour24 = dateObj.getHours();
@@ -333,13 +336,7 @@
         if (hour12 === 0) hour12 = 12;
         const time = `${hour12}:${mi} ${ampm}`;
 
-        if (formatStyle === "dmy_slash") {
-          // DD/MM/YYYY
-          return `${d}/${m}/${y} ${time}`;
-        }
-
-        // Default: YYYY-MM-DD
-        return `${y}-${m}-${d} ${time}`;
+        return `${mon} ${day}, ${y} ${time}`;
       }
 
       function formatUtcForCsv(dateObj, formatStyle, hasSeconds) {
