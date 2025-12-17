@@ -67,7 +67,9 @@
         {% csrf_token %}
 
         <!-- Hidden raw CSV field that the view reads/writes -->
-        <textarea id="csv_raw" name="csv_text" style="display:none;">{{ csv_text|escape }}</textarea>
+        <textarea id="csv_raw" name="csv_content" style="display:none;">
+{% if csv_content %}{{ csv_content|escape }}{% elif csv_text %}{{ csv_text|escape }}{% endif %}
+        </textarea>
 
         <div class="table-wrapper">
           <table id="csvTable">

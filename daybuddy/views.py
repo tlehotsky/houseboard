@@ -35,6 +35,7 @@ from collections import deque
 from django.http import JsonResponse, FileResponse, Http404
 from django.views.decorators.http import require_http_methods, require_POST
 from django.utils.text import slugify
+from django.contrib import messages
 
 import json
 
@@ -399,6 +400,72 @@ def rangers_schedule(request):
     games_out.sort(key=lambda g: (g["date"], g["time_label"] or ""))
 
     return JsonResponse({"games": games_out})
+
+def rangers_schedule_edit(request):
+    """
+    Simple CSV editor for the NY Rangers schedule.
+
+    - GET: show the current CSV contents in the NHL editor table.
+    - POST: save new contents and create a timestamped backup of the previous file.
+    """
+    csv_path = Path("/srv/daybuddy/data/ny_rangers_2025_2026_schedule.csv")
+
+    error = None
+    message = None
+
+    if request.method == "POST":
+        csv_content = request.POST.get("csv_content", "")
+
+        if not csv_content.strip():
+            error = "CSV text cannot be empty."
+        else:
+            try:
+                # 1) Make a timestamped backup of the existing file (if it exists)
+                if csv_path.exists():
+                    ts = timezone.now().strftime("%Y%m%d-%H%M%S")
+                    backup_path = csv_path.with_suffix(csv_path.suffix + f".bak.{ts}")
+                    backup_path.write_text(csv_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+                # Ensure parent directory exists
+                csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # 2) Write the new contents
+                csv_path.write_text(csv_content, encoding="utf-8")
+                message = "Rangers CSV saved successfully (backup created)."
+
+                # Store a flash message in the session and redirect to avoid repost
+                request.session["rangers_csv_message"] = message
+                return redirect(request.path)
+
+            except Exception as exc:
+                error = f"Error saving CSV: {exc}"
+
+    # GET (or POST with an error): load whatever is on disk
+    try:
+        csv_content = csv_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        # Seed with a header row if this is the first time
+        csv_content = "date,time,opponent,home_away,status,broadcast\n"
+
+    # Pull any flash message from the session if we don't already have an error
+    if not error:
+        session_msg = request.session.pop("rangers_csv_message", None)
+        if session_msg:
+            message = session_msg
+
+    context = {
+        # Primary key the NHL editor should use
+        "csv_content": csv_content,
+        # Backward-compatibility in case the template still references csv_text
+        "csv_text": csv_content,
+        "csv_path": str(csv_path),
+        "error": error,
+        "message": message,
+        "title": "Edit NY Rangers Schedule",
+    }
+    return render(request, "daybuddy/nhl_edit.html", context)
+
+
 
 
  # --- NFL schedule editor view (CSV text editor with backups) ---
