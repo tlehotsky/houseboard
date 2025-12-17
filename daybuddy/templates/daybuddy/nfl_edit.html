@@ -89,7 +89,7 @@
         <div class="actions">
           <button type="submit">Save CSV</button>
           <a href="/houseboard/daybuddy/week/">← Back to Week View</a>
-          <span class="hint">Edits in the table will be converted back to CSV when you click Save.</span>
+          <span class="hint">Dates are displayed in your local time, but saved back to the CSV in UTC.</span>
         </div>
       </form>
     </div>
@@ -177,9 +177,44 @@
               const input = document.createElement("input");
               input.type = "text";
               input.className = "cell-input";
-              input.value = (row[colIdx] || "").trim();
               input.setAttribute("data-row", rowIdx);
               input.setAttribute("data-col", colIdx);
+
+              const originalValue = (row[colIdx] || "").trim();
+
+              // If this is the Date column, display local time but keep CSV value in UTC.
+              if (detectDateColumn(headers[colIdx])) {
+                const fmt = inferDateFormatStyle(originalValue);
+                input.dataset.dateStyle = fmt.style;
+                input.dataset.dateHasSeconds = fmt.hasSeconds ? "1" : "0";
+
+                // Always preserve the original UTC CSV value unless the user edits it.
+                input.dataset.csvValue = originalValue;
+
+                const utcDate = parseUtcDate(originalValue);
+                if (utcDate) {
+                  input.value = formatLocalForDisplay(utcDate, fmt.style, fmt.hasSeconds);
+                } else {
+                  // If we can’t parse, fall back to showing raw value.
+                  input.value = originalValue;
+                }
+
+                // When user edits the displayed local time, convert back to UTC for saving.
+                input.addEventListener("change", function () {
+                  const localDate = parseLocalInputToUtcDate(input.value);
+                  if (!localDate) {
+                    // If parsing fails, save whatever the user typed.
+                    input.dataset.csvValue = input.value;
+                    return;
+                  }
+                  const style = input.dataset.dateStyle || "iso";
+                  const hasSeconds = input.dataset.dateHasSeconds === "1";
+                  input.dataset.csvValue = formatUtcForCsv(localDate, style, hasSeconds);
+                });
+              } else {
+                input.value = originalValue;
+              }
+
               td.appendChild(input);
             }
             tr.appendChild(td);
@@ -239,6 +274,180 @@
         });
       }
 
+      function pad2(n) {
+        return String(n).padStart(2, "0");
+      }
+
+      function detectDateColumn(header) {
+        const h = (header || "").trim().toLowerCase();
+        // Matches your CSV badge “Date (with time)” but also supports simple “Date”
+        return h === "date" || h === "date (with time)" || h.includes("date");
+      }
+
+      function parseUtcDate(value) {
+        const s = (value || "").trim();
+        if (!s) return null;
+
+        // 1) Let the browser parse ISO strings (including Z/offset)
+        let d = new Date(s);
+        if (!isNaN(d.getTime())) return d;
+
+        // 2) Handle common non-ISO UTC formats like "YYYY-MM-DD HH:MM" or "YYYY-MM-DD HH:MM:SS"
+        // Treat as UTC by converting to ISO and appending Z.
+        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+        if (m) {
+          const yyyy = m[1], mm = m[2], dd = m[3], HH = m[4], MI = m[5], SS = m[6] || "00";
+          d = new Date(`${yyyy}-${mm}-${dd}T${HH}:${MI}:${SS}Z`);
+          if (!isNaN(d.getTime())) return d;
+        }
+
+        // 3) Handle EU-style format like "DD/MM/YYYY HH:MM" or "DD/MM/YYYY HH:MM:SS" as UTC
+        const m2 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
+        if (m2) {
+          const dd = m2[1], mm = m2[2], yyyy = m2[3], HH = m2[4], MI = m2[5], SS = m2[6] || "00";
+          d = new Date(`${yyyy}-${mm}-${dd}T${HH}:${MI}:${SS}Z`);
+          if (!isNaN(d.getTime())) return d;
+        }
+
+        return null;
+      }
+
+      function formatLocalForDisplay(dateObj, formatStyle, hasSeconds) {
+        // Display in the user’s local timezone, but keep the CSV's date ordering.
+        const y = dateObj.getFullYear();
+        const m = pad2(dateObj.getMonth() + 1);
+        const d = pad2(dateObj.getDate());
+        const mi = pad2(dateObj.getMinutes());
+        const ss = pad2(dateObj.getSeconds());
+
+        // 12-hour time with AM/PM (no leading zero on hour)
+        const hour24 = dateObj.getHours();
+        const ampm = hour24 >= 12 ? "PM" : "AM";
+        let hour12 = hour24 % 12;
+        if (hour12 === 0) hour12 = 12;
+        const time = hasSeconds ? `${hour12}:${mi}:${ss} ${ampm}` : `${hour12}:${mi} ${ampm}`;
+
+        if (formatStyle === "dmy_slash") {
+          // DD/MM/YYYY
+          return `${d}/${m}/${y} ${time}`;
+        }
+
+        // Default: YYYY-MM-DD
+        return `${y}-${m}-${d} ${time}`;
+      }
+
+      function formatUtcForCsv(dateObj, formatStyle, hasSeconds) {
+        // Keep output format close to what was originally in the CSV
+        const y = dateObj.getUTCFullYear();
+        const m = pad2(dateObj.getUTCMonth() + 1);
+        const d = pad2(dateObj.getUTCDate());
+        const hh = pad2(dateObj.getUTCHours());
+        const mi = pad2(dateObj.getUTCMinutes());
+        const ss = pad2(dateObj.getUTCSeconds());
+
+        if (formatStyle === "dmy_slash") {
+          // DD/MM/YYYY
+          return hasSeconds ? `${d}/${m}/${y} ${hh}:${mi}:${ss}` : `${d}/${m}/${y} ${hh}:${mi}`;
+        }
+
+        if (formatStyle === "space") {
+          return hasSeconds ? `${y}-${m}-${d} ${hh}:${mi}:${ss}` : `${y}-${m}-${d} ${hh}:${mi}`;
+        }
+
+        // default: ISO
+        const base = hasSeconds ? `${y}-${m}-${d}T${hh}:${mi}:${ss}Z` : `${y}-${m}-${d}T${hh}:${mi}:00Z`;
+        return base;
+      }
+
+      function inferDateFormatStyle(original) {
+        const s = (original || "").trim();
+        const hasSeconds = /:(\d{2})\s*$/.test(s) || /:(\d{2})Z\s*$/.test(s) || /T\d{2}:\d{2}:\d{2}/.test(s);
+
+        // Preserve common CSV formats:
+        // - dmy_slash: DD/MM/YYYY HH:MM[:SS]
+        // - iso: ISO-ish strings with T/Z/offset
+        // - space: YYYY-MM-DD HH:MM[:SS]
+        let style = "space";
+        if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
+          style = "dmy_slash";
+        } else if (s.includes("T") || s.toLowerCase().includes("z") || /[+-]\d{2}:?\d{2}$/.test(s)) {
+          style = "iso";
+        } else {
+          style = "space";
+        }
+
+        return { style, hasSeconds };
+      }
+
+      function parseLocalInputToUtcDate(value) {
+        const s = (value || "").trim();
+        if (!s) return null;
+
+        // Accept local input like "YYYY-MM-DD HH:MM" or "YYYY-MM-DD HH:MM:SS" or ISO without Z
+        let d = new Date(s);
+        if (!isNaN(d.getTime())) return d;
+
+        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+        if (m) {
+          const yyyy = parseInt(m[1], 10);
+          const mm = parseInt(m[2], 10) - 1;
+          const dd = parseInt(m[3], 10);
+          const HH = parseInt(m[4], 10);
+          const MI = parseInt(m[5], 10);
+          const SS = parseInt(m[6] || "0", 10);
+          // Construct as LOCAL time
+          d = new Date(yyyy, mm, dd, HH, MI, SS);
+          if (!isNaN(d.getTime())) return d;
+        }
+
+        // Accept local input in YYYY-MM-DD H:MM[:SS] AM/PM
+        const mAmPm = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])$/);
+        if (mAmPm) {
+          const yyyy = parseInt(mAmPm[1], 10);
+          const mm = parseInt(mAmPm[2], 10) - 1;
+          const dd = parseInt(mAmPm[3], 10);
+          let HH = parseInt(mAmPm[4], 10);
+          const MI = parseInt(mAmPm[5], 10);
+          const SS = parseInt(mAmPm[6] || "0", 10);
+          const ampm = String(mAmPm[7]).toUpperCase();
+          if (ampm === "PM" && HH < 12) HH += 12;
+          if (ampm === "AM" && HH === 12) HH = 0;
+          d = new Date(yyyy, mm, dd, HH, MI, SS);
+          if (!isNaN(d.getTime())) return d;
+        }
+
+        // Also accept local input in DD/MM/YYYY HH:MM[:SS]
+        const m2 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
+        if (m2) {
+          const dd = parseInt(m2[1], 10);
+          const mm = parseInt(m2[2], 10) - 1;
+          const yyyy = parseInt(m2[3], 10);
+          const HH = parseInt(m2[4], 10);
+          const MI = parseInt(m2[5], 10);
+          const SS = parseInt(m2[6] || "0", 10);
+          d = new Date(yyyy, mm, dd, HH, MI, SS);
+          if (!isNaN(d.getTime())) return d;
+        }
+
+        // Accept local input in DD/MM/YYYY H:MM[:SS] AM/PM
+        const m2AmPm = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])$/);
+        if (m2AmPm) {
+          const dd = parseInt(m2AmPm[1], 10);
+          const mm = parseInt(m2AmPm[2], 10) - 1;
+          const yyyy = parseInt(m2AmPm[3], 10);
+          let HH = parseInt(m2AmPm[4], 10);
+          const MI = parseInt(m2AmPm[5], 10);
+          const SS = parseInt(m2AmPm[6] || "0", 10);
+          const ampm = String(m2AmPm[7]).toUpperCase();
+          if (ampm === "PM" && HH < 12) HH += 12;
+          if (ampm === "AM" && HH === 12) HH = 0;
+          d = new Date(yyyy, mm, dd, HH, MI, SS);
+          if (!isNaN(d.getTime())) return d;
+        }
+
+        return null;
+      }
+
       function csvEscape(value) {
         if (value === null || value === undefined) return "";
         const needsQuotes = /[",\n]/.test(value);
@@ -259,7 +468,8 @@
           const cells = [];
           const cellsElems = Array.from(tr.querySelectorAll(".cell-input"));
           cellsElems.forEach(elem => {
-            cells.push(csvEscape(elem.value || ""));
+            const v = (elem.dataset && typeof elem.dataset.csvValue !== "undefined") ? elem.dataset.csvValue : (elem.value || "");
+            cells.push(csvEscape(v));
           });
           rows.push(cells.join(","));
         });
