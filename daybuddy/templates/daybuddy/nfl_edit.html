@@ -21,6 +21,12 @@
       tbody tr:nth-child(even) { background:#090d1a; }
       tbody tr:nth-child(odd) { background:#050814; }
       td { padding:3px 6px; border-bottom:1px solid #14182b; }
+      /* Column width tuning: 1=Match #, 2=Week #, 3=Date */
+      th:nth-child(2), td:nth-child(2) { width: 90px; min-width: 90px; max-width: 90px; }
+      th:nth-child(3), td:nth-child(3) { width: 190px; min-width: 190px; }
+
+      /* Keep these compact and avoid wrapping */
+      td:nth-child(2), td:nth-child(3) { white-space: nowrap; }
       td:first-child, th:first-child { position:sticky; left:0; background:#151a30; box-shadow:2px 0 0 #14182b; }
       tbody tr:hover { background:#1a2236; }
       tbody tr:hover td:first-child { background:#202944; }
@@ -314,18 +320,18 @@
 
       function formatLocalForDisplay(dateObj, formatStyle, hasSeconds) {
         // Display in the user’s local timezone, but keep the CSV's date ordering.
+        // NOTE: We intentionally do NOT display seconds (even if the CSV has them).
         const y = dateObj.getFullYear();
         const m = pad2(dateObj.getMonth() + 1);
         const d = pad2(dateObj.getDate());
         const mi = pad2(dateObj.getMinutes());
-        const ss = pad2(dateObj.getSeconds());
 
         // 12-hour time with AM/PM (no leading zero on hour)
         const hour24 = dateObj.getHours();
         const ampm = hour24 >= 12 ? "PM" : "AM";
         let hour12 = hour24 % 12;
         if (hour12 === 0) hour12 = 12;
-        const time = hasSeconds ? `${hour12}:${mi}:${ss} ${ampm}` : `${hour12}:${mi} ${ampm}`;
+        const time = `${hour12}:${mi} ${ampm}`;
 
         if (formatStyle === "dmy_slash") {
           // DD/MM/YYYY
