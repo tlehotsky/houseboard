@@ -1,3 +1,4 @@
+from temps.models import HouseTempReading
 
 
 
@@ -13,6 +14,15 @@ import json as _json
 from pathlib import Path as _Path
 APP_ROOT = _Path(__file__).resolve().parent
 CAL_SOURCES_PATH = APP_ROOT / 'cal_sources.json'
+
+# Serial / sensor mapping (kept inside the repo so we don't need /srv permissions)
+# Expected shape:
+#   {
+#     "28-000005c685ba": "Kitchen",
+#     "28-000005c6ba08": "Garage",
+#     ...
+#   }
+TEMP_SENSOR_MAP_PATH = APP_ROOT / "temp_sensors.json"
 
 def _read_cal_sources():
     try:
@@ -75,6 +85,17 @@ def _load_status_json(path: Path):
     try:
         if path.exists():
             return _json.loads(path.read_text())
+    except Exception:
+        pass
+    return {}
+
+
+def _load_temp_sensor_map():
+    """Load mapping of sensor serials (or node:serial keys) to friendly room names."""
+    try:
+        if TEMP_SENSOR_MAP_PATH.exists():
+            data = _json.loads(TEMP_SENSOR_MAP_PATH.read_text())
+            return data if isinstance(data, dict) else {}
     except Exception:
         pass
     return {}
@@ -220,62 +241,108 @@ def house_status(request):
 
 @require_GET
 def house_temps(request):
-    """
-    Small JSON API so the House Health card in week.html can load room temps
-    from the droplet.
+    """Small JSON API so the DayBuddy floorplan + House Health card can load temps.
 
-    It adapts the status JSON from get_house_health() into a simple:
+    Reads from `HouseTempReading` (populated via /api/houseboard/temps_ingest/) and
+    maps sensor serials to friendly room names using `temp_sensors.json` located
+    in the DayBuddy app directory.
+
+    Returns:
       {
         "rooms": [
           {"room": "Kitchen", "temp_f": 71.2},
           ...
         ],
-        "updated_at": "2025-11-23T15:04:05"
+        "updated_at": "2025-12-17T22:55:57.668747+00:00"
       }
     """
     try:
-        hh = get_house_health()
-        zones = hh.get("zones") or []
+        sensor_map = _load_temp_sensor_map()
+
+        def pretty_room_name(node_id: str) -> str:
+            s = (node_id or "").strip()
+            if not s:
+                return "Room"
+            s = re.sub(r"_esp\d+$", "", s, flags=re.IGNORECASE)
+            s = s.replace("_", " ").strip()
+            return s.title() if s else "Room"
+
+        def room_name_for(r) -> str:
+            node = (r.node_id or "").strip()
+            serial = (r.sensor_serial or "").strip()
+
+            # Support either key style:
+            #  - "node_id:sensor_serial" (most precise)
+            #  - "sensor_serial" only (simple)
+            key_precise = f"{node}:{serial}" if (node and serial) else ""
+            if key_precise and key_precise in sensor_map:
+                return str(sensor_map[key_precise]).strip() or pretty_room_name(node)
+            if serial and serial in sensor_map:
+                return str(sensor_map[serial]).strip() or pretty_room_name(node)
+            if node and node in sensor_map:
+                return str(sensor_map[node]).strip() or pretty_room_name(node)
+
+            # Fallback: keep something stable and human-readable
+            if node and serial:
+                return f"{pretty_room_name(node)} ({serial})"
+            return pretty_room_name(node)
+
+        latest_by_room = {}
+        updated_at = None
+
+        qs = (
+            HouseTempReading.objects
+            .exclude(node_id="")
+            .order_by("-received_at", "-recorded_at")
+        )
+
+        # Walk newest-first and keep the first seen reading for each room.
+        for r in qs.iterator(chunk_size=500):
+            node = (r.node_id or "").strip()
+            if not node:
+                continue
+            if node.lower().startswith("test"):
+                continue
+
+            room = room_name_for(r)
+            if room in latest_by_room:
+                continue
+
+            latest_by_room[room] = r
+
+            stamp = r.received_at or r.recorded_at
+            if updated_at is None or (stamp and stamp > updated_at):
+                updated_at = stamp
+
+            if len(latest_by_room) >= 80:
+                break
 
         rooms = []
-        for z in zones:
-            name = z.get("name") or z.get("room") or "Room"
-
-            raw_temp_f = z.get("temp_f")
-            raw_temp_c = z.get("temp_c")
-
+        for room, r in latest_by_room.items():
             temp_f = None
-
-            # Prefer an explicit temp_f if present and finite
-            if isinstance(raw_temp_f, (int, float)):
+            if r.temp_c is not None:
                 try:
-                    if not (math.isnan(raw_temp_f) or math.isinf(raw_temp_f)):
-                        temp_f = round(float(raw_temp_f), 1)
-                except TypeError:
-                    temp_f = None
-            # Otherwise derive °F from °C if available and finite
-            elif isinstance(raw_temp_c, (int, float)):
-                try:
-                    if not (math.isnan(raw_temp_c) or math.isinf(raw_temp_c)):
-                        temp_f = round((float(raw_temp_c) * 9.0 / 5.0) + 32.0, 1)
-                except TypeError:
+                    temp_f = round((float(r.temp_c) * 9.0 / 5.0) + 32.0, 1)
+                except Exception:
                     temp_f = None
 
             rooms.append({
-                "room": name,
+                "room": room,
                 "temp_f": temp_f,
             })
+
+        rooms.sort(key=lambda x: x.get("room") or "")
+        updated_str = updated_at.isoformat() if updated_at else None
 
         return JsonResponse(
             {
                 "rooms": rooms,
-                "updated_at": hh.get("updated_at"),
+                "updated_at": updated_str,
             },
             json_dumps_params={"allow_nan": False},
         )
 
     except Exception as e:
-        # Never emit HTML here; always JSON so jq and the frontend can handle it.
         return JsonResponse(
             {
                 "rooms": [],

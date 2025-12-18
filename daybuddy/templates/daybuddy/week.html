@@ -694,6 +694,7 @@ body::after{
 
         <div class="card" id="card-house">
           <h4>House Health</h4>
+          <div class="muted" id="house-updated" style="margin-top:2px;">Temps updated: —</div>
           <div class="muted" id="house-summary">Rooms: —</div>
           <div class="muted house-room-list" id="house-rooms">
             <div>Loading rooms…</div>
@@ -1576,11 +1577,13 @@ async function loadNetworkHealth(){
 async function loadHouseHealth(){
   const listEl    = document.getElementById('house-rooms');
   const summaryEl = document.getElementById('house-summary');
+  const updatedEl = document.getElementById('house-updated');
   if (!listEl || !summaryEl) return;
 
   // Default state while loading
   listEl.innerHTML = '<div>Loading rooms…</div>';
   summaryEl.textContent = 'Rooms: —';
+  if (updatedEl) updatedEl.textContent = 'Temps updated: checking…';
 
   try {
     // CANDIDATE ENDPOINTS:
@@ -1594,7 +1597,8 @@ async function loadHouseHealth(){
 
     for (const url of candidates) {
       try {
-        const res = await fetch(url, { cache: 'no-store' });
+        const bust = (url.includes('?') ? '&' : '?') + '_=' + Date.now();
+        const res = await fetch(url + bust, { cache: 'no-store' });
         if (!res.ok) {
           lastErr = new Error('house_health HTTP ' + res.status + ' for ' + url);
           continue;
@@ -1661,6 +1665,44 @@ async function loadHouseHealth(){
     listEl.innerHTML = html;
     summaryEl.textContent = `Rooms: ${rooms.length}`;
 
+    // Show freshest timestamp from the payload so we can tell if data is stale.
+    // We look for common timestamp fields on the response and/or each room row.
+    function parseAnyDate(v){
+      if(!v) return null;
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    let freshest = null;
+
+    // Top-level hints
+    freshest = freshest || parseAnyDate(data.updated_at);
+    freshest = freshest || parseAnyDate(data.as_of);
+    freshest = freshest || parseAnyDate(data.generated_at);
+    freshest = freshest || parseAnyDate(data.timestamp);
+
+    // Per-room hints
+    for (const r of rooms) {
+      const d =
+        parseAnyDate(r.updated_at) ||
+        parseAnyDate(r.recorded_at) ||
+        parseAnyDate(r.read_at) ||
+        parseAnyDate(r.ts) ||
+        parseAnyDate(r.timestamp) ||
+        parseAnyDate(r.created_at);
+      if (d && (!freshest || d > freshest)) freshest = d;
+    }
+
+    // Fallback: if nothing provided, use the fetch time (at least shows refresh is happening)
+    if (!freshest) freshest = new Date();
+
+    if (updatedEl) {
+      const nowT = new Date();
+      const ageMin = Math.round((nowT.getTime() - freshest.getTime()) / 60000);
+      const tLabel = freshest.toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true });
+      updatedEl.textContent = `Temps updated: ${tLabel}${isFinite(ageMin) ? ` (${ageMin}m ago)` : ''}`;
+    }
+
     // Update any temp markers overlaid on the floorplan images
     const markers = document.querySelectorAll('.temp-marker');
     markers.forEach(marker => {
@@ -1670,10 +1712,50 @@ async function loadHouseHealth(){
       // Optional pretty label override for display
       const displayName = marker.getAttribute('data-label') || roomName;
 
-      const room = rooms.find(r => {
-        const n = (r.room || r.name || '').toLowerCase();
-        return n === roomName.toLowerCase();
+      // Try exact match first; then fall back to a normalized match; then a "contains" match.
+      const norm = (s) => String(s || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+
+      const wantExact = String(roomName || '').toLowerCase();
+      const wantNorm  = norm(roomName);
+      const labelNorm = norm(displayName);
+
+      let room = rooms.find(r => {
+        const n = (r.room || r.name || '');
+        return n && String(n).toLowerCase() === wantExact;
       });
+
+      if (!room && wantNorm) {
+        room = rooms.find(r => {
+          const n = (r.room || r.name || '');
+          return n && norm(n) === wantNorm;
+        });
+      }
+
+      if (!room && (wantExact || displayName)) {
+        const candidates = rooms.filter(r => {
+          const n = (r.room || r.name || '');
+          if (!n) return false;
+          const nl = String(n).toLowerCase();
+          // e.g. "Kitchen (28-...)" should satisfy marker "Kitchen"
+          if (wantExact && nl.includes(wantExact)) return true;
+          // e.g. label "Alex" should satisfy room "Alex's Room"
+          if (labelNorm && norm(n).includes(labelNorm)) return true;
+          return false;
+        });
+
+        // Prefer the shortest matching name so we pick "Basement" over
+        // "Basement Outside RPi Cabinet" when both exist.
+        if (candidates.length) {
+          candidates.sort((a, b) => {
+            const na = String(a.room || a.name || '');
+            const nb = String(b.room || b.name || '');
+            return na.length - nb.length;
+          });
+          room = candidates[0];
+        }
+      }
 
       let tempF = null;
       if (room) {
@@ -1715,6 +1797,7 @@ async function loadHouseHealth(){
     console.error('House health load failed', e);
     listEl.innerHTML = '<div>Error loading house temps</div>';
     summaryEl.textContent = 'Rooms: error';
+    if (updatedEl) updatedEl.textContent = 'Temps updated: error';
   }
 }
 
@@ -2026,9 +2109,283 @@ async function loadNFLSchedule(){
     if(!host) return;
 
     const games = Array.isArray(data.games) ? data.games : [];
-    if(!games.length){
-      host.textContent = 'No NFL games in the next 7 days.';
-      return;
+
+    // --- Helpers ---
+    function pad2(n){ return String(n).padStart(2,'0'); }
+    const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    function isoToLocalDow(iso){
+      const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if(!m) return null;
+      const d = new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+      return DOW[d.getDay()];
+    }
+
+    function desiredDowForGame(g){
+      // Try the most likely explicit fields first
+      const candidates = [
+        g.dow, g.day, g.weekday, g.day_of_week, g.day_label, g.weekday_label,
+        g.dayName, g.day_name, g.weekdayName, g.weekday_name, g.week_day,
+        g.kickoff_day, g.kickoff_dow, g.kickoff_weekday
+      ];
+      for (const c of candidates) {
+        if (!c) continue;
+        const s = String(c);
+        const m = s.match(/\b(Sun|Mon|Tue|Wed|Thu|Fri|Sat)(?:day)?\b/i);
+        if (m) return m[1].slice(0,1).toUpperCase() + m[1].slice(1,3).toLowerCase();
+      }
+
+      // Fallback: scan all string values for a weekday token
+      try {
+        for (const v of Object.values(g || {})) {
+          if (typeof v !== 'string') continue;
+          const m = v.match(/\b(Sun|Mon|Tue|Wed|Thu|Fri|Sat)(?:day)?\b/i);
+          if (m) return m[1].slice(0,1).toUpperCase() + m[1].slice(1,3).toLowerCase();
+        }
+      } catch (_) {}
+
+      return null;
+    }
+
+    // Anchor on *local* midnight for the 7-day strip
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    function toIsoDateLocal(d){
+      return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    }
+
+    // Precompute the exact 7 ISO dates we will render (today..today+6) so
+    // game bucketing can prefer dates that actually appear in the strip.
+    const STRIP_ISOS = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      STRIP_ISOS.push(toIsoDateLocal(d));
+    }
+    const STRIP_SET = new Set(STRIP_ISOS);
+
+    function uniqPush(arr, v){
+      if(v && !arr.includes(v)) arr.push(v);
+    }
+
+    function pickIsoInStrip(options){
+      for (const iso of options) {
+        if (iso && STRIP_SET.has(iso)) return iso;
+      }
+      return null;
+    }
+
+    function isoToUtcMs(iso){
+      const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if(!m) return null;
+      return Date.UTC(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+    }
+
+    function pickStripIsoForDow(wantDow, nearIso){
+      if(!wantDow) return null;
+      const candidates = STRIP_ISOS.filter(iso => isoToLocalDow(iso) === wantDow);
+      if(!candidates.length) return null;
+      if(!nearIso) return candidates[0];
+      const nearMs = isoToUtcMs(nearIso);
+      if(nearMs == null) return candidates[0];
+      let best = candidates[0];
+      let bestDist = Infinity;
+      for(const iso of candidates){
+        const ms = isoToUtcMs(iso);
+        if(ms == null) continue;
+        const dist = Math.abs(ms - nearMs);
+        if(dist < bestDist){ bestDist = dist; best = iso; }
+      }
+      return best;
+    }
+
+    function cleanTimeLabel(label){
+      // Strip things like "ET" or "(FOX)" so parseStartMinutes() can read it.
+      return String(label || '')
+        .replace(/[^0-9apm:]/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    // Shift an ISO date (YYYY-MM-DD) by N days using UTC math (no local tz effects)
+    function shiftIsoUtc(iso, deltaDays){
+      const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if(!m) return iso;
+      const y = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10) - 1;
+      const d = parseInt(m[3], 10);
+      const ms = Date.UTC(y, mo, d) + (deltaDays * 86400000);
+      const dt = new Date(ms);
+      return `${dt.getUTCFullYear()}-${pad2(dt.getUTCMonth()+1)}-${pad2(dt.getUTCDate())}`;
+    }
+
+    // Extract a date-only ISO string (YYYY-MM-DD) WITHOUT applying timezone math.
+    // Good for pure date fields.
+    function extractIsoDate(value){
+      const s = (value || '').trim();
+      if(!s) return null;
+
+      // 1) ISO date present anywhere
+      let m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if(m){
+        return `${m[1]}-${m[2]}-${m[3]}`;
+      }
+
+      // 2) Slash date present anywhere (DD/MM[/YYYY])
+      m = s.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
+      if(m){
+        const a = parseInt(m[1], 10);
+        const b = parseInt(m[2], 10);
+        let yy = m[3] ? parseInt(m[3], 10) : today.getFullYear();
+
+        // Per user, CSV is always DD/MM/YYYY
+        const dd = a;
+        const mm = b;
+
+        if(!m[3] && today.getMonth() === 11 && mm === 1){
+          yy = yy + 1;
+        }
+
+        return `${yy}-${pad2(mm)}-${pad2(dd)}`;
+      }
+
+      return null;
+    }
+
+    // If a field contains a UTC datetime (with time), bucket by the *local* calendar day.
+    // This fixes Saturday night games that are Sunday in UTC.
+    function utcDateTimeToLocalIso(value){
+      const s0 = (value || '').trim();
+      if(!s0) return null;
+
+      // ISO-ish datetime: YYYY-MM-DDTHH:MM[:SS][Z|±HH:MM] or with a space
+      let m = s0.match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?/);
+      if(m){
+        let dt = s0;
+        if(dt.includes(' ') && !dt.includes('T')) dt = dt.replace(' ', 'T');
+        // If no timezone is provided, assume UTC
+        const hasTz = /[zZ]|[+-]\d{2}:?\d{2}$/.test(dt);
+        if(!hasTz) dt = dt + 'Z';
+        const d = new Date(dt);
+        if(!isNaN(d.getTime())) return toIsoDateLocal(d);
+      }
+
+      // Slash datetime: D/M[/YYYY] HH:MM[:SS]
+      m = s0.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if(m){
+        const a = parseInt(m[1], 10);
+        const b = parseInt(m[2], 10);
+        let yy = m[3] ? parseInt(m[3], 10) : today.getFullYear();
+
+        // Per user, CSV is always DD/MM/YYYY
+        const dd = a;
+        const mm = b;
+
+        if(!m[3] && today.getMonth() === 11 && mm === 1){
+          yy = yy + 1;
+        }
+
+        const HH = parseInt(m[4], 10);
+        const MI = parseInt(m[5], 10);
+        const SS = m[6] ? parseInt(m[6], 10) : 0;
+
+        // Treat this timestamp as UTC
+        const ms = Date.UTC(yy, mm-1, dd, HH, MI, SS);
+        const d = new Date(ms);
+        if(!isNaN(d.getTime())) return toIsoDateLocal(d);
+      }
+
+      return null;
+    }
+
+    function normalizeGameIso(g){
+      const candidates = [
+        g.utc_datetime, g.kickoff_utc, g.datetime, g.date_time, g.date_time_utc,
+        g.iso_date, g.date, g.date_label, g.week_date, g.day_date, g.date_str
+      ];
+
+      const wantDow = desiredDowForGame(g);
+
+      // A) parse any datetime field into local day (with midnight-UTC guard)
+      let isoFromDt = null;
+      for (const c of candidates) {
+        const v = utcDateTimeToLocalIso(c);
+        if (v) { isoFromDt = v; break; }
+      }
+
+      // B) date-only as provided
+      let isoDateOnly = null;
+      for (const c of candidates) {
+        const v = extractIsoDate(c);
+        if (v) { isoDateOnly = v; break; }
+      }
+
+      // C) treat date-only as UTC calendar date and shift to local using kickoff time label
+      let isoShifted = null;
+      if (isoDateOnly) {
+        const timeLabelRaw = g.time_label || g.kickoff_label || g.time || g.kickoff || '';
+        const minsLocal = parseStartMinutes(cleanTimeLabel(timeLabelRaw));
+        if (minsLocal != null) {
+          const tzOffsetMin = new Date().getTimezoneOffset();
+          const utcMinsFromLocalMidnight = minsLocal + tzOffsetMin;
+          const dayDelta = Math.floor(utcMinsFromLocalMidnight / 1440);
+          // utcDate = localDate + dayDelta  => localDate = utcDate - dayDelta
+          isoShifted = shiftIsoUtc(isoDateOnly, -dayDelta);
+        }
+      }
+
+      // Build an ordered list of plausible ISO candidates, then pick the first that is
+      // actually in the rendered 7-day strip (prevents "Saturday" games being bucketed
+      // to Sunday when backend dates are off by one).
+      const opts = [];
+
+      // Prefer weekday-matching candidates first (including ±1 correction)
+      if (wantDow) {
+        const tryIso = (iso) => {
+          if (!iso) return;
+          if (isoToLocalDow(iso) === wantDow) uniqPush(opts, iso);
+          const minus1 = shiftIsoUtc(iso, -1);
+          if (isoToLocalDow(minus1) === wantDow) uniqPush(opts, minus1);
+          const plus1 = shiftIsoUtc(iso, 1);
+          if (isoToLocalDow(plus1) === wantDow) uniqPush(opts, plus1);
+        };
+        tryIso(isoFromDt);
+        tryIso(isoShifted);
+        tryIso(isoDateOnly);
+      }
+
+      
+      // General preference order
+      uniqPush(opts, isoFromDt);
+      uniqPush(opts, isoShifted);
+      uniqPush(opts, isoDateOnly);
+
+      // ±1 day fallbacks (most common real-world issue)
+      if (isoDateOnly) {
+        uniqPush(opts, shiftIsoUtc(isoDateOnly, -1));
+        uniqPush(opts, shiftIsoUtc(isoDateOnly, 1));
+      }
+      if (isoFromDt) {
+        uniqPush(opts, shiftIsoUtc(isoFromDt, -1));
+        uniqPush(opts, shiftIsoUtc(isoFromDt, 1));
+      }
+      if (isoShifted) {
+        uniqPush(opts, shiftIsoUtc(isoShifted, -1));
+        uniqPush(opts, shiftIsoUtc(isoShifted, 1));
+      }
+
+      const inStrip = pickIsoInStrip(opts);
+      if (inStrip) return inStrip;
+
+      // Last-resort: if we can detect the game's weekday, pin it to the matching
+      // weekday within the visible 7-day strip.
+      const near = isoFromDt || isoShifted || isoDateOnly || null;
+      const pinned = pickStripIsoForDow(wantDow, near);
+      if (pinned) return pinned;
+
+      // If the game isn't in the visible strip, return the best-effort ISO.
+      return near;
     }
 
     // Classify game slot based on local (browser) kickoff time:
@@ -2036,149 +2393,97 @@ async function loadNFLSchedule(){
     // 4:00–7:59 PM   → "afternoon" (yellow)
     // 8:00 PM+       → "evening"  (red)
     function classifySlotFromTimeLabel(timeLabel, fallbackSlot) {
-      const mins = parseStartMinutes(timeLabel || '');
+      const mins = parseStartMinutes(cleanTimeLabel(timeLabel || ''));
       let slot = fallbackSlot || '';
-
       if (mins != null) {
-        if (mins < 16 * 60) {
-          slot = 'morning';
-        } else if (mins < 20 * 60) {
-          slot = 'afternoon';
-        } else {
-          slot = 'evening';
-        }
+        if (mins < 16 * 60) slot = 'morning';
+        else if (mins < 20 * 60) slot = 'afternoon';
+        else slot = 'evening';
       }
       return slot;
     }
 
-    // Group games by date string
-    const byDate = {};
+    // Index games by ISO date
+    const byIso = new Map();
     for(const g of games){
-      const key = g.date || g.date_label || 'unknown';
-      if(!byDate[key]) byDate[key] = { meta: g, list: [] };
-      byDate[key].list.push(g);
+      const iso = normalizeGameIso(g);
+      if(!iso) continue;
+      if(!byIso.has(iso)) byIso.set(iso, []);
+      byIso.get(iso).push(g);
     }
 
-    const days = Object.values(byDate).sort((a, b) => {
-      const da = a.meta.date || '';
-      const db = b.meta.date || '';
-      if (da < db) return -1;
-      if (da > db) return 1;
-      return 0;
-    });
-
-    // Build the 7-day strip
+    // Render a true 7-day strip starting today (even if some days have no games)
     const parts = [];
-    for (const day of days) {
-      const meta = day.meta;
-      parts.push('<div class="nfl-day">');
-      parts.push(
-        `<div class="day-label">${
-          meta.day_label || meta.weekday_label || ''
-        } ${
-          meta.date_label || meta.date || meta.iso_date || ''
-        }</div>`
-      );
+    parts.push('<div id="nfl-grid">');
 
-      if (!day.list.length) {
+    for(let i=0;i<7;i++){
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const iso = STRIP_ISOS[i];
+
+      const mm = pad2(d.getMonth()+1);
+      const dd = pad2(d.getDate());
+      const headLabel = `${DOW[d.getDay()]} ${mm}/${dd}`;
+
+      const dayGames = byIso.get(iso) || [];
+
+      parts.push('<div class="nfl-day">');
+      parts.push(`<div class="day-label">${headLabel}</div>`);
+
+      if(!dayGames.length){
         parts.push('<div class="nogame">No game</div>');
       } else {
-        // Sort by slot so that "before 4pm" (blue) games come first,
-        // 4–7:59pm (yellow) second, and 8pm+ (red) last.
-        const ordered = [...day.list].sort((a, b) => {
+        const ordered = [...dayGames].sort((a, b) => {
           const order = { morning: 0, afternoon: 1, evening: 2 };
-
-          const timeA =
-            a.time_label || a.kickoff_label || a.time || a.kickoff || '';
-          const timeB =
-            b.time_label || b.kickoff_label || b.time || b.kickoff || '';
-
+          const timeA = a.time_label || a.kickoff_label || a.time || a.kickoff || '';
+          const timeB = b.time_label || b.kickoff_label || b.time || b.kickoff || '';
           const slotA = classifySlotFromTimeLabel(timeA, a.slot);
           const slotB = classifySlotFromTimeLabel(timeB, b.slot);
-
           const sa = order[slotA] ?? 3;
           const sb = order[slotB] ?? 3;
-
           if (sa !== sb) return sa - sb;
-          // As a tie-breaker, keep original relative order if slots match.
+
+          // Tie-breaker: by kickoff time if parseable
+          const ma = parseStartMinutes(cleanTimeLabel(timeA || ''));
+          const mb = parseStartMinutes(cleanTimeLabel(timeB || ''));
+          if (ma != null && mb != null && ma !== mb) return ma - mb;
           return 0;
         });
 
-
-
-
         for (const g of ordered) {
-          const timeLabel =
-            g.time_label || g.kickoff_label || g.time || g.kickoff || '';
+          const timeLabel = g.time_label || g.kickoff_label || g.time || g.kickoff || '';
           const slotName = classifySlotFromTimeLabel(timeLabel, g.slot);
           const slotClass = slotName ? ` ${slotName}` : '';
 
-          // Try to build a readable matchup string from several possible fields
-          const home =
-            g.home_team ||
-            g.home ||
-            g.home_name ||
-            g.home_full ||
-            g["Home Team"] ||
-            '';
-          const away =
-            g.away_team ||
-            g.away ||
-            g.away_name ||
-            g.away_full ||
-            g["Away Team"] ||
-            '';
+          // Matchup text
+          const home = g.home_team || g.home || g.home_name || g.home_full || g["Home Team"] || '';
+          const away = g.away_team || g.away || g.away_name || g.away_full || g["Away Team"] || '';
           const teamsField = g.teams || g.matchup || g.game_label || '';
-          const titleField =
-            g.title || g.label || g.summary || g.name || g.description || '';
+          const titleField = g.title || g.label || g.summary || g.name || g.description || '';
 
-          // Prefer explicit opponent/teams/labels from the backend
           let opp = g.opponent || teamsField || titleField;
-
           if (!opp) {
-            if (home && away) {
-              const ha = g.home_away || g.side || '';
-              if (ha === 'home') {
-                // Home game: opponent AT us
-                opp = `${away} @ ${home}`;
-              } else if (ha === 'away') {
-                // Away game: we are AT opponent
-                opp = `${home} vs ${away}`;
-              } else {
-                opp = `${away} at ${home}`;
-              }
-            } else {
-              // Last-resort fallback: show whatever team name we have, otherwise "Game"
-              opp = home || away || 'Game';
-            }
+            if (home && away) opp = `${away} at ${home}`;
+            else opp = home || away || 'Game';
           }
 
-          // Build a status string with time / extra info when present
           const extraLabel = g.status || g.note || g.channel || '';
           const statusParts = [];
           if (timeLabel) statusParts.push(timeLabel);
           if (extraLabel) statusParts.push(extraLabel);
           const status = statusParts.length ? ` (${statusParts.join(' • ')})` : '';
 
-          // Map broadcast_class → display letter
           const bc = g.broadcast_class || '';
           const tag = (bc === 'local') ? 'L'
                     : (bc === 'prime') ? 'P'
-                    : (bc === 'youtube') ? 'Y'     // YouTube TV / streaming
-                    : 'O';                          // Other / unknown
+                    : (bc === 'youtube') ? 'Y'
+                    : 'O';
 
-          const isNoGame = opp.toLowerCase().includes('no game');
-
+          const isNoGame = String(opp).toLowerCase().includes('no game');
           if (isNoGame) {
-            // "No game" rows: no letter prefix
-            parts.push(
-              `<div class="nogame">${opp}${status}</div>`
-            );
+            parts.push(`<div class="nogame">${opp}${status}</div>`);
           } else {
-            // Normal games keep the L / Y / P / O prefix and show matchup text
-            parts.push(
-              `<div class="game${slotClass}"><b>${tag}</b> ${opp}${status}</div>`
-            );
+            parts.push(`<div class="game${slotClass}"><b>${tag}</b> ${opp}${status}</div>`);
           }
         }
       }
@@ -2186,7 +2491,8 @@ async function loadNFLSchedule(){
       parts.push('</div>');
     }
 
-    host.innerHTML = `<div id="nfl-grid">${parts.join('')}</div>`;
+    parts.push('</div>');
+    host.innerHTML = parts.join('');
   }catch(e){
     console.error(e);
     const host = document.getElementById('nfl-sched');
