@@ -546,11 +546,12 @@ def nfl_schedule_edit(request):
 
     This uses the same NFL CSV that nfl_schedule() reads via _find_nfl_csv().
     """
-    csv_path = _find_nfl_csv()
-    # If we didn't find an existing file, default to the primary path so we
-    # know where to create it when the user hits Save.
-    if csv_path is None:
-        csv_path = Path("/srv/daybuddy/data/nfl_2025_full.csv")
+    # Canonical NFL CSV location inside the Django repo
+    csv_path = Path(settings.BASE_DIR) / "daybuddy" / "data" / "nfl_2025_full.csv"
+
+
+
+
 
     error = None
     message = None
@@ -604,17 +605,17 @@ def nfl_schedule_edit(request):
     return render(request, "daybuddy/nfl_edit.html", ctx)
 
 
-def _find_nfl_csv():
-    """Return the Path to the NFL CSV file if it exists, else None."""
-    base_dir = Path("/srv/daybuddy/data")
-    candidates = [
-        base_dir / "nfl_schedule_2025.csv",
-        base_dir / "nfl_2025_full.csv",
-    ]
-    for p in candidates:
-        if p.exists():
-            return p
-    return None
+# def _find_nfl_csv():
+#     """Return the Path to the NFL CSV file if it exists, else None."""
+#     base_dir = Path("/home/tlehotsky/daybuddy/data")
+#     candidates = [
+#         base_dir / "nfl_schedule_2025.csv",
+#         base_dir / "nfl_2025_full.csv",
+#     ]
+#     for p in candidates:
+#         if p.exists():
+#             return p
+#     return None
 
 @require_GET
 def nfl_schedule(request):
@@ -641,43 +642,63 @@ def nfl_schedule(request):
             ]
         }
 
-    It is tailored for fixturedownload.com CSVs like
-    nfl-2025-UTC.csv which use a `Date` column of the form
-    `dd/mm/YYYY HH:MM` in UTC plus `Home Team`, `Away Team`,
-    `Location`, `Result`, and `Broadcast` columns.
+    It expects the NFL CSV to contain a date-only `Date` column plus a separate
+    `Time` column (already in Eastern Time). Example:
+      - Date: 2025-09-07   (or 09/07/2025)
+      - Time: 8:20 PM      (or 20:20)
+
+    The backend treats the combined Date+Time as already-local (ET) and does NOT
+    apply any UTC-to-local conversion.
     """
-    csv_path = _find_nfl_csv()
-    if not csv_path or not csv_path.exists():
+    # Canonical NFL CSV location inside the Django repo
+    csv_path = Path(settings.BASE_DIR) / "daybuddy" / "data" / "nfl_2025_full.csv"
+
+    if not csv_path.exists():
         # No file available – just return an empty list so the card
         # shows "No NFL games…" instead of a 500.
-        return JsonResponse({"games": []})
+        return JsonResponse({"games": [], "error": f"NFL CSV not found at {csv_path}"})
 
     today = timezone.localdate()
     window_end = today + datetime.timedelta(days=7)
 
     games_out = []
 
-    # Helper to parse the fixturedownload-style Date field
-    def _parse_kickoff(raw: str):
+    # Helpers to parse a date-only Date column plus a separate Time column
+    def _parse_date(raw: str):
         if not raw:
             return None
         raw_str = raw.strip()
-        # Try a few common patterns that include time. The primary
-        # one for nfl-2025-UTC.csv is "%d/%m/%Y %H:%M".
         fmts = (
-            "%d/%m/%Y %H:%M",   # 05/09/2025 00:20
-            "%d/%m/%y %H:%M",
-            "%Y-%m-%d %H:%M",   # 2025-09-05 00:20
-            "%Y-%m-%dT%H:%M",
-            "%m/%d/%Y %H:%M",   # 09/05/2025 20:20 (US style)
-            "%m/%d/%y %H:%M",
-            "%Y-%m-%d",         # date-only fallbacks
-            "%d/%m/%Y",
-            "%m/%d/%Y",
+            "%Y-%m-%d",   # 2025-09-07
+            "%m/%d/%Y",   # 09/07/2025
+            "%m/%d/%y",
+            "%d/%m/%Y",   # 07/09/2025 (rare, but tolerated)
+            "%d/%m/%y",
         )
         for fmt in fmts:
             try:
-                return datetime.datetime.strptime(raw_str, fmt)
+                return datetime.datetime.strptime(raw_str, fmt).date()
+            except ValueError:
+                continue
+        return None
+
+    def _parse_time(raw: str):
+        if not raw:
+            return None
+        raw_str = raw.strip()
+        if not raw_str:
+            return None
+        # Common time patterns like "8:20 PM", "8:20PM", "20:20", "8 PM"
+        fmts = (
+            "%I:%M %p",
+            "%I:%M%p",
+            "%I %p",
+            "%I%p",
+            "%H:%M",
+        )
+        for fmt in fmts:
+            try:
+                return datetime.datetime.strptime(raw_str, fmt).time()
             except ValueError:
                 continue
         return None
@@ -712,26 +733,31 @@ def nfl_schedule(request):
     with csv_path.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            raw_dt = (row.get("Date") or row.get("date") or "").strip()
-            if not raw_dt:
+            raw_date = (row.get("Date") or row.get("date") or row.get("Game Date") or "").strip()
+            if not raw_date:
                 continue
 
-            dt_naive = _parse_kickoff(raw_dt)
-            if not dt_naive:
+            raw_time = (row.get("Time") or row.get("time") or row.get("Kickoff") or "").strip()
+
+            date_obj = _parse_date(raw_date)
+            if not date_obj:
                 # Skip rows we can't parse instead of crashing
                 continue
 
-            # The fixturedownload CSV we pulled is in UTC (e.g. "nfl-2025-UTC"),
-            # so interpret the parsed datetime as UTC and convert it to the
-            # local Django timezone (America/New_York in your settings).
+            time_obj = _parse_time(raw_time)
+
+            # Combine Date + Time; if time is missing/TBD, default to noon so
+            # date bucketing is stable and slot classification is reasonable.
+            combined_naive = datetime.datetime.combine(
+                date_obj,
+                time_obj if time_obj else datetime.time(12, 0),
+            )
+
+            # Treat the combined datetime as already-local (ET) in Django's default TZ
             try:
-                import datetime as _dtmod
-                dt_utc = dt_naive.replace(tzinfo=_dtmod.timezone.utc)
-                local_tz = timezone.get_default_timezone()
-                dt_local = dt_utc.astimezone(local_tz)
+                dt_local = timezone.make_aware(combined_naive, timezone.get_default_timezone())
             except Exception:
-                # If anything goes wrong with tz handling, fall back to naive
-                dt_local = dt_naive
+                dt_local = combined_naive
 
             game_date = dt_local.date()
 
@@ -763,18 +789,20 @@ def nfl_schedule(request):
                     fallback_team = raw_opponent or home or away
                     opponent = _short_team(fallback_team) if fallback_team else "Game"
 
-            # Time-of-day label from the CSV datetime (e.g. "1:00 PM")
-            try:
-                time_label = dt_local.strftime("%-I:%M %p")
-            except Exception:
-                # Windows / non-GNU strftime fallback (just in case)
-                time_label = dt_local.strftime("%I:%M %p").lstrip("0")
+            # Time label (from CSV Time column if provided)
+            if time_obj:
+                try:
+                    time_label = dt_local.strftime("%-I:%M %p")
+                except Exception:
+                    time_label = dt_local.strftime("%I:%M %p").lstrip("0")
+            else:
+                time_label = (raw_time or "TBD").strip() or "TBD"
 
             # Slot classification (based on local time, e.g. America/New_York):
             #   - afternoon:  kicks before 16:00 (4:00 PM)      → blue
             #   - evening:    16:00–19:59 (4:00–7:59 PM)        → yellow
             #   - primetime:  20:00 and later (8:00 PM or later) → red
-            hour = dt_local.hour
+            hour = getattr(dt_local, "hour", 12)
             if hour < 16:
                 slot = "afternoon"
             elif hour < 20:
@@ -804,11 +832,16 @@ def nfl_schedule(request):
                     "status": status,
                     "broadcast_class": broadcast_class,
                     "slot": slot,
+                    "_kickoff_sort": dt_local,
                 }
             )
 
-    # Sort games by date and time so the JS can just group by date
-    games_out.sort(key=lambda g: (g["date"], g.get("time_label") or ""))
+    # Sort games by date and kickoff datetime for stable ordering
+    games_out.sort(key=lambda g: (g["date"], g.get("_kickoff_sort") or datetime.datetime.max))
+
+    # Remove private sort key before sending to client
+    for g in games_out:
+        g.pop("_kickoff_sort", None)
 
     return JsonResponse({"games": games_out})
 def healthz(_request):
