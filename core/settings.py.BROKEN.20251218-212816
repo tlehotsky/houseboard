@@ -11,8 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import os
-import json
+import os, json
+CAL_SOURCES = json.loads(os.environ.get("HB_CAL_SOURCES", "[]"))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -76,14 +76,17 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
         "OPTIONS": {
-            "timeout": 30,  # seconds
-        },
+        "timeout": 30,  # seconds (try 30–60)
+        },        
     }
-}
+    
+
+    
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -117,15 +120,15 @@ USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
+# https://docs.djangoproject.com/en/5.2/howto/sta"America/New_York"tic-files/
 
 STATIC_URL = "/static/"
 STATIC_ROOT = "/var/www/houseboard/static"
 
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "houseboard-locmem",
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": "houseboard-locmem-cache",
         "TIMEOUT": 300,  # 5 minutes
     }
 }
@@ -141,9 +144,11 @@ STATICFILES_DIRS = [
     BASE_DIR / "daybuddy" / "static",
 ]
 
+import os
 CSRF_TRUSTED_ORIGINS = os.environ.get('HB_CSRF_TRUSTED','').split(',') if os.environ.get('HB_CSRF_TRUSTED') else []
 
 # ---- HouseBoard calendar sources (env first, else file) ----
+import os, json
 def _hb_load_sources():
     _env = os.environ.get("HB_CAL_SOURCES")
     if _env:
