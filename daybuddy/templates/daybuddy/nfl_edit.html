@@ -21,15 +21,30 @@
       tbody tr:nth-child(even) { background:#090d1a; }
       tbody tr:nth-child(odd) { background:#050814; }
       td { padding:3px 6px; border-bottom:1px solid #14182b; }
-      /* Column width tuning: 1=Match #, 2=Week #, 3=Date */
+      /* Hide Match Number column (col 1) */
+      th:nth-child(1), td:nth-child(1) { display:none; }
+      /* Column width tuning: 1=Match # (hidden), 2=Week #, 3=Date, 4=Time */
       th:nth-child(2), td:nth-child(2) { width: 90px; min-width: 90px; max-width: 90px; }
-      th:nth-child(3), td:nth-child(3) { width: 190px; min-width: 190px; }
+      th:nth-child(3), td:nth-child(3) { width: 140px; min-width: 140px; max-width: 160px; }
+      th:nth-child(4), td:nth-child(4) { width: 110px; min-width: 110px; max-width: 130px; }
 
       /* Keep these compact and avoid wrapping */
-      td:nth-child(2), td:nth-child(3) { white-space: nowrap; }
-      td:first-child, th:first-child { position:sticky; left:0; background:#151a30; box-shadow:2px 0 0 #14182b; }
+      td:nth-child(2), td:nth-child(3), td:nth-child(4) { white-space: nowrap; }
+      td:nth-child(2), th:nth-child(2) { position:sticky; left:0; background:#151a30; box-shadow:2px 0 0 #14182b; }
+
+      /* Center Week Number / Date / Time headings and values */
+      th:nth-child(2), td:nth-child(2),
+      th:nth-child(3), td:nth-child(3),
+      th:nth-child(4), td:nth-child(4) {
+        text-align: center;
+      }
+      td:nth-child(2) .cell-input,
+      td:nth-child(3) .cell-input,
+      td:nth-child(4) .cell-input {
+        text-align: center;
+      }
       tbody tr:hover { background:#1a2236; }
-      tbody tr:hover td:first-child { background:#202944; }
+      tbody tr:hover td:nth-child(2) { background:#202944; }
 
       input.cell-input, select.cell-input { width:100%; box-sizing:border-box; border-radius:4px; border:1px solid rgba(255,255,255,0.08); padding:3px 5px; background:rgba(0,0,0,0.25); color:#f5f7ff; font-size:12px; font-family:inherit; }
       input.cell-input:focus, select.cell-input:focus { outline:none; border-color:#5b8dff; box-shadow:0 0 0 1px rgba(91,141,255,0.7); }
@@ -58,7 +73,8 @@
       <div class="badges">
         <div class="badge">Match Number</div>
         <div class="badge">Round Number</div>
-        <div class="badge">Date (with time)</div>
+        <div class="badge">Date</div>
+        <div class="badge">Time (ET)</div>
         <div class="badge">Location</div>
         <div class="badge">Home / Away Teams</div>
         <div class="badge">Result</div>
@@ -95,7 +111,7 @@
         <div class="actions">
           <button type="submit">Save CSV</button>
           <a href="/houseboard/daybuddy/week/">← Back to Week View</a>
-          <span class="hint">Dates are displayed in your local time, but saved back to the CSV in UTC.</span>
+          <span class="hint">Times in this file are Eastern Time (ET). Edits are saved exactly as shown.</span>
         </div>
       </form>
     </div>
@@ -146,6 +162,33 @@
         const weekSet = new Set();
         const roundIdx = headers.findIndex(h => h.trim().toLowerCase() === "round number");
 
+
+        const dateIdx = headers.findIndex(h => h.trim().toLowerCase() === "date");
+        const timeIdx = headers.findIndex(h => h.trim().toLowerCase() === "time");
+
+        // Determine "current week" as the week number of the next upcoming game
+        let currentWeek = "";
+        let nextKickoff = null;
+        const now = new Date();
+
+        if (roundIdx >= 0 && dateIdx >= 0) {
+          rows.forEach(r => {
+            const w = (r[roundIdx] || "").trim();
+            const ds = (r[dateIdx] || "").trim();
+            const ts = timeIdx >= 0 ? (r[timeIdx] || "").trim() : "";
+            if (!w || !ds) return;
+
+            const dt = parseLocalDateTime(ds, ts);
+            if (!dt || isNaN(dt.getTime())) return;
+
+            if (dt >= now && (nextKickoff === null || dt < nextKickoff)) {
+              nextKickoff = dt;
+              currentWeek = w;
+            }
+          });
+        }
+
+
         rows.forEach((row, rowIdx) => {
           const tr = document.createElement("tr");
 
@@ -186,40 +229,21 @@
               input.setAttribute("data-row", rowIdx);
               input.setAttribute("data-col", colIdx);
 
+              const headerName = headers[colIdx] ? headers[colIdx].trim() : "";
               const originalValue = (row[colIdx] || "").trim();
 
-              // If this is the Date column, display local time but keep CSV value in UTC.
-              if (detectDateColumn(headers[colIdx])) {
-                const fmt = inferDateFormatStyle(originalValue);
-                input.dataset.dateStyle = fmt.style;
-                input.dataset.dateHasSeconds = fmt.hasSeconds ? "1" : "0";
-
-                // Always preserve the original UTC CSV value unless the user edits it.
-                input.dataset.csvValue = originalValue;
-
-                const utcDate = parseUtcDate(originalValue);
-                if (utcDate) {
-                  input.value = formatLocalForDisplay(utcDate, fmt.style, fmt.hasSeconds);
-                } else {
-                  // If we can’t parse, fall back to showing raw value.
-                  input.value = originalValue;
-                }
-
-                // When user edits the displayed local time, convert back to UTC for saving.
-                input.addEventListener("change", function () {
-                  const localDate = parseLocalInputToUtcDate(input.value);
-                  if (!localDate) {
-                    // If parsing fails, save whatever the user typed.
-                    input.dataset.csvValue = input.value;
-                    return;
-                  }
-                  const style = input.dataset.dateStyle || "iso";
-                  const hasSeconds = input.dataset.dateHasSeconds === "1";
-                  input.dataset.csvValue = formatUtcForCsv(localDate, style, hasSeconds);
-                });
+              if (isTimeHeader(headerName)) {
+                input.value = normalizeTimeTo12h(originalValue);
+                attachTimeNormalization(input);
               } else {
                 input.value = originalValue;
-              }
+}
+
+
+
+
+
+
 
               td.appendChild(input);
             }
@@ -232,10 +256,38 @@
         if (weekFilter) {
           const currentValue = weekFilter.value;
           weekFilter.innerHTML = "";
+
+          // const optAll = document.createElement("option");
+          // optAll.value = "";
+          // optAll.textContent = "All weeks";
+          // weekFilter.appendChild(optAll);
+
           const optAll = document.createElement("option");
           optAll.value = "";
           optAll.textContent = "All weeks";
           weekFilter.appendChild(optAll);
+
+          const optCurrent = document.createElement("option");
+          optCurrent.value = "__CURRENT__";
+          optCurrent.textContent = "Current week";
+          if (currentWeek) {
+            weekFilter.dataset.currentWeek = currentWeek;
+            optCurrent.disabled = false;
+          } else {
+            delete weekFilter.dataset.currentWeek;
+            optCurrent.disabled = true; // no upcoming games found
+          }
+          weekFilter.appendChild(optCurrent);
+
+
+
+
+
+
+          // const optAll = document.createElement("option");
+          // optAll.value = "";
+          // optAll.textContent = "All weeks";
+          // weekFilter.appendChild(optAll);
 
           Array.from(weekSet)
             .sort((a, b) => {
@@ -267,7 +319,14 @@
         const weekFilter = document.getElementById("weekFilter");
         if (!table || !weekFilter) return;
 
-        const value = weekFilter.value.trim();
+        // const value = weekFilter.value.trim();
+
+        let value = weekFilter.value.trim();
+        if (value === "__CURRENT__") {
+          // for now, treat as "All weeks" until we wire up logic
+          value = (weekFilter.dataset.currentWeek || "").trim();
+        }
+
         const rows = Array.from(table.querySelectorAll("tbody tr"));
 
         rows.forEach(tr => {
@@ -284,176 +343,106 @@
         return String(n).padStart(2, "0");
       }
 
-      function detectDateColumn(header) {
-        const h = (header || "").trim().toLowerCase();
-        // Matches your CSV badge “Date (with time)” but also supports simple “Date”
-        return h === "date" || h === "date (with time)" || h.includes("date");
+      function normalizeTimeTo12h(raw) {
+        if (!raw) return "";
+        let v = String(raw).trim();
+        if (!v) return "";
+
+        // Already 12h? (e.g., "1:05 PM", "01:05pm")
+        const m12 = v.match(/^\s*(\d{1,2})\s*:\s*(\d{2})(?:\s*:\s*(\d{2}))?\s*(AM|PM)\s*$/i);
+        if (m12) {
+          let h = parseInt(m12[1], 10);
+          const min = parseInt(m12[2], 10);
+          if (isNaN(h) || isNaN(min) || min < 0 || min > 59) return raw;
+          h = ((h - 1 + 12) % 12) + 1; // force 1-12
+          const ampm = String(m12[4]).toUpperCase();
+          return `${h}:${pad2(min)} ${ampm}`;
+        }
+
+        // 24h / ISO-ish? (e.g., "17:00", "01:20:00")
+        const m24 = v.match(/^\s*(\d{1,2})\s*:\s*(\d{2})(?:\s*:\s*(\d{2}))?\s*$/);
+        if (!m24) return raw;
+
+        let hh = parseInt(m24[1], 10);
+        const mm = parseInt(m24[2], 10);
+        if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return raw;
+
+        const ampm = hh >= 12 ? "PM" : "AM";
+        let h12 = hh % 12;
+        if (h12 === 0) h12 = 12;
+        return `${h12}:${pad2(mm)} ${ampm}`;
       }
 
-      function parseUtcDate(value) {
-        const s = (value || "").trim();
-        if (!s) return null;
+      function isTimeHeader(h) {
+        return (h || "").trim().toLowerCase() === "time";
+      }
 
-        // 1) Let the browser parse ISO strings (including Z/offset)
-        let d = new Date(s);
-        if (!isNaN(d.getTime())) return d;
+      function attachTimeNormalization(inputEl) {
+        if (!inputEl) return;
+        // Normalize on blur so user can paste either 24h or 12h and we standardize.
+        inputEl.addEventListener("blur", function () {
+          inputEl.value = normalizeTimeTo12h(inputEl.value);
+        });
+      }
 
-        // 2) Handle common non-ISO UTC formats like "YYYY-MM-DD HH:MM" or "YYYY-MM-DD HH:MM:SS"
-        // Treat as UTC by converting to ISO and appending Z.
-        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
-        if (m) {
-          const yyyy = m[1], mm = m[2], dd = m[3], HH = m[4], MI = m[5], SS = m[6] || "00";
-          d = new Date(`${yyyy}-${mm}-${dd}T${HH}:${MI}:${SS}Z`);
-          if (!isNaN(d.getTime())) return d;
+
+      function parseDmyDate(dateStr) {
+        // Expected: DD/MM/YYYY
+        const s = String(dateStr || "").trim();
+        const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (!m) return null;
+        const dd = parseInt(m[1], 10);
+        const mm = parseInt(m[2], 10);
+        const yyyy = parseInt(m[3], 10);
+        if ([dd, mm, yyyy].some(n => isNaN(n))) return null;
+        if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+        return { dd, mm, yyyy };
+      }
+
+      function parseTimeTo24h(timeStr) {
+        const raw = String(timeStr || "").trim();
+        if (!raw) return { hh: 0, mi: 0 };
+
+        // 12h (e.g., "1:05 PM", "01:05pm")
+        const m12 = raw.match(/^\s*(\d{1,2})\s*:\s*(\d{2})(?:\s*:\s*(\d{2}))?\s*(AM|PM)\s*$/i);
+        if (m12) {
+          let h = parseInt(m12[1], 10);
+          const mi = parseInt(m12[2], 10);
+          if (isNaN(h) || isNaN(mi) || mi < 0 || mi > 59) return null;
+          const ampm = String(m12[4]).toUpperCase();
+          h = h % 12;
+          if (ampm === "PM") h += 12;
+          return { hh: h, mi };
         }
 
-        // 3) Handle EU-style format like "DD/MM/YYYY HH:MM" or "DD/MM/YYYY HH:MM:SS" as UTC
-        const m2 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
-        if (m2) {
-          const dd = m2[1], mm = m2[2], yyyy = m2[3], HH = m2[4], MI = m2[5], SS = m2[6] || "00";
-          d = new Date(`${yyyy}-${mm}-${dd}T${HH}:${MI}:${SS}Z`);
-          if (!isNaN(d.getTime())) return d;
+        // 24h / ISO-ish (e.g., "17:00", "01:20:00")
+        const m24 = raw.match(/^\s*(\d{1,2})\s*:\s*(\d{2})(?:\s*:\s*(\d{2}))?\s*$/);
+        if (m24) {
+          const hh = parseInt(m24[1], 10);
+          const mi = parseInt(m24[2], 10);
+          if (isNaN(hh) || isNaN(mi) || hh < 0 || hh > 23 || mi < 0 || mi > 59) return null;
+          return { hh, mi };
         }
 
+        // Try normalizing and retry
+        const norm = normalizeTimeTo12h(raw);
+        if (norm && norm !== raw) return parseTimeTo24h(norm);
         return null;
       }
 
+      function parseLocalDateTime(dateStr, timeStr) {
+        const d = parseDmyDate(dateStr);
+        if (!d) return null;
+        const t = parseTimeTo24h(timeStr);
+        if (!t) return null;
 
-
-      
-
-      function formatLocalForDisplay(dateObj, formatStyle, hasSeconds) {
-        // Display in the user’s local timezone.
-        // NOTE: This is display-only formatting; saving still uses UTC in the original CSV style.
-        const y = dateObj.getFullYear();
-        const day = dateObj.getDate();
-        const mi = pad2(dateObj.getMinutes());
-
-        // Month short name (stable, en-US style)
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        const mon = monthNames[dateObj.getMonth()];
-
-        // 12-hour time with AM/PM (no leading zero on hour)
-        const hour24 = dateObj.getHours();
-        const ampm = hour24 >= 12 ? "PM" : "AM";
-        let hour12 = hour24 % 12;
-        if (hour12 === 0) hour12 = 12;
-        const time = `${hour12}:${mi} ${ampm}`;
-
-        return `${mon} ${day}, ${y} ${time}`;
+        // Browser-local Date. Since you view this in ET and the CSV is ET, it behaves as intended.
+        return new Date(d.yyyy, d.mm - 1, d.dd, t.hh, t.mi, 0, 0);
       }
 
-      function formatUtcForCsv(dateObj, formatStyle, hasSeconds) {
-        // Keep output format close to what was originally in the CSV
-        const y = dateObj.getUTCFullYear();
-        const m = pad2(dateObj.getUTCMonth() + 1);
-        const d = pad2(dateObj.getUTCDate());
-        const hh = pad2(dateObj.getUTCHours());
-        const mi = pad2(dateObj.getUTCMinutes());
-        const ss = pad2(dateObj.getUTCSeconds());
 
-        if (formatStyle === "dmy_slash") {
-          // DD/MM/YYYY
-          return hasSeconds ? `${d}/${m}/${y} ${hh}:${mi}:${ss}` : `${d}/${m}/${y} ${hh}:${mi}`;
-        }
 
-        if (formatStyle === "space") {
-          return hasSeconds ? `${y}-${m}-${d} ${hh}:${mi}:${ss}` : `${y}-${m}-${d} ${hh}:${mi}`;
-        }
 
-        // default: ISO
-        const base = hasSeconds ? `${y}-${m}-${d}T${hh}:${mi}:${ss}Z` : `${y}-${m}-${d}T${hh}:${mi}:00Z`;
-        return base;
-      }
-
-      function inferDateFormatStyle(original) {
-        const s = (original || "").trim();
-        const hasSeconds = /:(\d{2})\s*$/.test(s) || /:(\d{2})Z\s*$/.test(s) || /T\d{2}:\d{2}:\d{2}/.test(s);
-
-        // Preserve common CSV formats:
-        // - dmy_slash: DD/MM/YYYY HH:MM[:SS]
-        // - iso: ISO-ish strings with T/Z/offset
-        // - space: YYYY-MM-DD HH:MM[:SS]
-        let style = "space";
-        if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
-          style = "dmy_slash";
-        } else if (s.includes("T") || s.toLowerCase().includes("z") || /[+-]\d{2}:?\d{2}$/.test(s)) {
-          style = "iso";
-        } else {
-          style = "space";
-        }
-
-        return { style, hasSeconds };
-      }
-
-      function parseLocalInputToUtcDate(value) {
-        const s = (value || "").trim();
-        if (!s) return null;
-
-        // Accept local input like "YYYY-MM-DD HH:MM" or "YYYY-MM-DD HH:MM:SS" or ISO without Z
-        let d = new Date(s);
-        if (!isNaN(d.getTime())) return d;
-
-        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
-        if (m) {
-          const yyyy = parseInt(m[1], 10);
-          const mm = parseInt(m[2], 10) - 1;
-          const dd = parseInt(m[3], 10);
-          const HH = parseInt(m[4], 10);
-          const MI = parseInt(m[5], 10);
-          const SS = parseInt(m[6] || "0", 10);
-          // Construct as LOCAL time
-          d = new Date(yyyy, mm, dd, HH, MI, SS);
-          if (!isNaN(d.getTime())) return d;
-        }
-
-        // Accept local input in YYYY-MM-DD H:MM[:SS] AM/PM
-        const mAmPm = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])$/);
-        if (mAmPm) {
-          const yyyy = parseInt(mAmPm[1], 10);
-          const mm = parseInt(mAmPm[2], 10) - 1;
-          const dd = parseInt(mAmPm[3], 10);
-          let HH = parseInt(mAmPm[4], 10);
-          const MI = parseInt(mAmPm[5], 10);
-          const SS = parseInt(mAmPm[6] || "0", 10);
-          const ampm = String(mAmPm[7]).toUpperCase();
-          if (ampm === "PM" && HH < 12) HH += 12;
-          if (ampm === "AM" && HH === 12) HH = 0;
-          d = new Date(yyyy, mm, dd, HH, MI, SS);
-          if (!isNaN(d.getTime())) return d;
-        }
-
-        // Also accept local input in DD/MM/YYYY HH:MM[:SS]
-        const m2 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
-        if (m2) {
-          const dd = parseInt(m2[1], 10);
-          const mm = parseInt(m2[2], 10) - 1;
-          const yyyy = parseInt(m2[3], 10);
-          const HH = parseInt(m2[4], 10);
-          const MI = parseInt(m2[5], 10);
-          const SS = parseInt(m2[6] || "0", 10);
-          d = new Date(yyyy, mm, dd, HH, MI, SS);
-          if (!isNaN(d.getTime())) return d;
-        }
-
-        // Accept local input in DD/MM/YYYY H:MM[:SS] AM/PM
-        const m2AmPm = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])$/);
-        if (m2AmPm) {
-          const dd = parseInt(m2AmPm[1], 10);
-          const mm = parseInt(m2AmPm[2], 10) - 1;
-          const yyyy = parseInt(m2AmPm[3], 10);
-          let HH = parseInt(m2AmPm[4], 10);
-          const MI = parseInt(m2AmPm[5], 10);
-          const SS = parseInt(m2AmPm[6] || "0", 10);
-          const ampm = String(m2AmPm[7]).toUpperCase();
-          if (ampm === "PM" && HH < 12) HH += 12;
-          if (ampm === "AM" && HH === 12) HH = 0;
-          d = new Date(yyyy, mm, dd, HH, MI, SS);
-          if (!isNaN(d.getTime())) return d;
-        }
-
-        return null;
-      }
 
       function csvEscape(value) {
         if (value === null || value === undefined) return "";

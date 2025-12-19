@@ -557,9 +557,12 @@ def nfl_schedule_edit(request):
     message = None
 
     if request.method == "POST":
+        # Accept either field name (older templates used csv_content)
         csv_text = request.POST.get("csv_text", "")
+        if not (csv_text or "").strip():
+            csv_text = request.POST.get("csv_content", "")
 
-        if not csv_text.strip():
+        if not (csv_text or "").strip():
             error = "CSV text cannot be empty."
         else:
             try:
@@ -587,8 +590,8 @@ def nfl_schedule_edit(request):
     try:
         csv_text = csv_path.read_text(encoding="utf-8")
     except FileNotFoundError:
-        # Seed with a header row if this is the first time
-        csv_text = "Match Number,Round Number,Date,Location,Home Team,Away Team,Result,Broadcast\n"
+        # Seed with a header row if this is the first time (new format: separate Time column)
+        csv_text = "Match Number,Round Number,Date,Time,Location,Home Team,Away Team,Result,Broadcast\n"
 
     # Pull any flash message from the session if we don't already have an error
     if not error:
@@ -598,6 +601,7 @@ def nfl_schedule_edit(request):
 
     ctx = {
         "csv_text": csv_text,
+        "csv_content": csv_text,  # alias for template compatibility
         "csv_path": str(csv_path),
         "error": error,
         "message": message,
@@ -835,6 +839,7 @@ def nfl_schedule(request):
                     "_kickoff_sort": dt_local,
                 }
             )
+
 
     # Sort games by date and kickoff datetime for stable ordering
     games_out.sort(key=lambda g: (g["date"], g.get("_kickoff_sort") or datetime.datetime.max))
