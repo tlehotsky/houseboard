@@ -1,4 +1,5 @@
 from django.http import HttpResponse
+from django.shortcuts import render
 from django.urls import path
 from daybuddy import views as cal_views
 from temps import views as temps_views
@@ -10,8 +11,8 @@ from django.conf.urls.static import static
 def hms_view(_request):
     return HttpResponse("hms ok")
 
-def security_view(_request):
-    return HttpResponse("security ok")
+def security_view(request):
+    return render(request, "houseboard/security.html", {"title": "Security"})
 
 urlpatterns = [
     path("houseboard/healthz/", cal_views.healthz),

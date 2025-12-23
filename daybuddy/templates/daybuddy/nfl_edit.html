@@ -117,6 +117,32 @@
     </div>
 
     <script>
+      function safeSessionGet(key) {
+        try {
+          return window.sessionStorage ? sessionStorage.getItem(key) : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function safeSessionSet(key, value) {
+        try {
+          if (window.sessionStorage) sessionStorage.setItem(key, value);
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      function getSavedWeekFilter() {
+        return safeSessionGet("nfl_week_filter") || "";
+      }
+
+      function saveWeekFilterSelection() {
+        const weekFilter = document.getElementById("weekFilter");
+        if (!weekFilter) return;
+        safeSessionSet("nfl_week_filter", (weekFilter.value || "").trim());
+      }
+
       function parseCsv(text) {
         if (!text) {
           return { headers: [], rows: [] };
@@ -191,6 +217,7 @@
 
         rows.forEach((row, rowIdx) => {
           const tr = document.createElement("tr");
+          tr.setAttribute("data-row-index", String(rowIdx));
 
           let weekVal = "";
           if (roundIdx >= 0) {
@@ -237,14 +264,7 @@
                 attachTimeNormalization(input);
               } else {
                 input.value = originalValue;
-}
-
-
-
-
-
-
-
+              }
               td.appendChild(input);
             }
             tr.appendChild(td);
@@ -255,6 +275,8 @@
         // Populate the week filter dropdown
         if (weekFilter) {
           const currentValue = weekFilter.value;
+          const savedValue = getSavedWeekFilter();
+          const desiredValue = (savedValue && savedValue.length > 0) ? savedValue : currentValue;
           weekFilter.innerHTML = "";
 
           // const optAll = document.createElement("option");
@@ -303,12 +325,19 @@
               weekFilter.appendChild(o);
             });
 
-          if (currentValue && Array.from(weekFilter.options).some(o => o.value === currentValue)) {
-            weekFilter.value = currentValue;
+          const hasDesired = desiredValue && Array.from(weekFilter.options).some(o => o.value === desiredValue);
+          const currentOpt = weekFilter.querySelector('option[value="__CURRENT__"]');
+          const desiredIsDisabledCurrent = (desiredValue === "__CURRENT__" && currentOpt && currentOpt.disabled);
+
+          if (hasDesired && !desiredIsDisabledCurrent) {
+            weekFilter.value = desiredValue;
           } else {
             weekFilter.value = "";
           }
         }
+
+        // Enable sortable headers (click to sort)
+        wireSortableHeaders(headers);
 
         // Apply current filter (if any)
         filterRowsByWeek();
@@ -385,6 +414,155 @@
         });
       }
 
+// ------------------------------
+// Sortable columns (click header)
+// ------------------------------
+let sortState = { colIdx: null, dir: 1 }; // dir: 1=asc, -1=desc
+
+function getCellInputValue(tr, colIdx) {
+  if (!tr) return "";
+  const el = tr.querySelector('.cell-input[data-col="' + colIdx + '"]');
+  if (!el) return "";
+  return (el.value || "").trim();
+}
+
+function isNumericHeader(h) {
+  const name = (h || "").trim().toLowerCase();
+  return name === "round number" || name === "week number" || name === "match number";
+}
+
+function isDateHeader(h) {
+  return (h || "").trim().toLowerCase() === "date";
+}
+
+function getSortKey(tr, colIdx, headers, dateIdx, timeIdx) {
+  const headerName = (headers[colIdx] || "").trim();
+  const headerLower = headerName.toLowerCase();
+
+  // Week/Match numbers
+  if (isNumericHeader(headerName)) {
+    const v = getCellInputValue(tr, colIdx);
+    const n = parseInt(v, 10);
+    return isNaN(n) ? null : n;
+  }
+
+  // Date: sort by Date+Time if Time exists
+  if (isDateHeader(headerName)) {
+    const ds = getCellInputValue(tr, dateIdx);
+    const ts = timeIdx >= 0 ? getCellInputValue(tr, timeIdx) : "";
+    const dt = parseLocalDateTime(ds, ts);
+    return (dt && !isNaN(dt.getTime())) ? dt.getTime() : null;
+  }
+
+  // Time: sort by minutes since midnight
+  if (headerLower === "time") {
+    const ts = getCellInputValue(tr, colIdx);
+    const t = parseTimeTo24h(ts);
+    if (!t) return null;
+    return (t.hh * 60) + t.mi;
+  }
+
+  // Default: case-insensitive string
+  const v = getCellInputValue(tr, colIdx);
+  return v ? v.toLowerCase() : "";
+}
+
+function compareSortKeys(aKey, bKey, dir) {
+  // Put blanks/nulls last for ascending, first for descending
+  const aEmpty = (aKey === null || aKey === undefined || aKey === "");
+  const bEmpty = (bKey === null || bKey === undefined || bKey === "");
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1 * dir;
+  if (bEmpty) return -1 * dir;
+
+  const aNum = (typeof aKey === "number");
+  const bNum = (typeof bKey === "number");
+  if (aNum && bNum) {
+    if (aKey < bKey) return -1 * dir;
+    if (aKey > bKey) return 1 * dir;
+    return 0;
+  }
+
+  const aStr = String(aKey);
+  const bStr = String(bKey);
+  const cmp = aStr.localeCompare(bStr, undefined, { numeric: true, sensitivity: "base" });
+  return cmp * dir;
+}
+
+function updateSortIndicators() {
+  const table = document.getElementById("csvTable");
+  if (!table) return;
+  const ths = Array.from(table.querySelectorAll("thead th"));
+  ths.forEach((th, idx) => {
+    let ind = th.querySelector(".sort-indicator");
+    if (!ind) {
+      ind = document.createElement("span");
+      ind.className = "sort-indicator";
+      ind.style.marginLeft = "6px";
+      ind.style.opacity = "0.7";
+      th.appendChild(ind);
+    }
+    if (sortState.colIdx === idx) {
+      ind.textContent = sortState.dir === 1 ? "▲" : "▼";
+    } else {
+      ind.textContent = "";
+    }
+  });
+}
+
+function sortTableByColumn(colIdx, headers) {
+  const table = document.getElementById("csvTable");
+  if (!table) return;
+  const tbody = table.querySelector("tbody");
+  if (!tbody) return;
+
+  const dateIdx = headers.findIndex(h => (h || "").trim().toLowerCase() === "date");
+  const timeIdx = headers.findIndex(h => (h || "").trim().toLowerCase() === "time");
+
+  const rows = Array.from(tbody.querySelectorAll("tr"));
+  const dir = sortState.dir;
+
+  rows.sort((a, b) => {
+    const aKey = getSortKey(a, colIdx, headers, dateIdx, timeIdx);
+    const bKey = getSortKey(b, colIdx, headers, dateIdx, timeIdx);
+    const cmp = compareSortKeys(aKey, bKey, dir);
+    if (cmp !== 0) return cmp;
+
+    // stable tie-breaker
+    const ai = parseInt(a.getAttribute("data-row-index") || "0", 10);
+    const bi = parseInt(b.getAttribute("data-row-index") || "0", 10);
+    return (ai - bi);
+  });
+
+  rows.forEach(r => tbody.appendChild(r));
+
+  updateSortIndicators();
+  filterRowsByWeek(); // keep filter applied after sort
+}
+
+function wireSortableHeaders(headers) {
+  const table = document.getElementById("csvTable");
+  if (!table) return;
+  const ths = Array.from(table.querySelectorAll("thead th"));
+  ths.forEach((th, idx) => {
+    // Skip Match Number column (hidden)
+    if (idx === 0) return;
+
+    th.style.cursor = "pointer";
+    th.title = "Click to sort";
+    th.addEventListener("click", function () {
+      if (sortState.colIdx === idx) {
+        sortState.dir = sortState.dir * -1;
+      } else {
+        sortState.colIdx = idx;
+        sortState.dir = 1;
+      }
+      sortTableByColumn(idx, headers);
+    });
+  });
+  updateSortIndicators();
+}
+
 
       function parseDmyDate(dateStr) {
         // Expected: DD/MM/YYYY
@@ -452,6 +630,8 @@
       }
 
       function syncCsvBeforeSubmit() {
+        // Remember the current week filter selection across the postback
+        saveWeekFilterSelection();
         const table = document.getElementById("csvTable");
         const rawEl = document.getElementById("csv_raw");
         if (!table || !rawEl) return true; // let submit continue
@@ -512,7 +692,10 @@
         buildTableFromCsv();
         const weekFilter = document.getElementById("weekFilter");
         if (weekFilter) {
-          weekFilter.addEventListener("change", filterRowsByWeek);
+          weekFilter.addEventListener("change", function () {
+            saveWeekFilterSelection();
+            filterRowsByWeek();
+          });
         }
         try {
           const wrapper = document.querySelector(".table-wrapper");
