@@ -224,6 +224,8 @@ Match Number,Round Number,Date,Time,Location,Home Team,Away Team,Result,Broadcas
 223,15,14/12/2025,8:20 PM,AT&T Stadium,Dallas Cowboys,Minnesota Vikings,,NBC
 224,15,15/12/2025,8:15 PM,Acrisure Stadium,Pittsburgh Steelers,Miami Dolphins,,ESPN
 225,16,18/12/2025,8:15 PM,Lumen Field,Seattle Seahawks,Los Angeles Rams,,Prime
+226,16,20/12/2025,5:00 PM,,Soldier Field,Chicago Bears,Green Bay Packers,
+227,16,20/12/2025,5:00 PM,Northwest Stadium,Washington Commanders,Philadelphia Eagles,,YouTube
 228,16,21/12/2025,1:00 PM,M&T Bank Stadium,Baltimore Ravens,New England Patriots,,NBC
 229,16,21/12/2025,1:00 PM,Bank of America Stadium,Carolina Panthers,Tampa Bay Buccaneers,,YouTube
 230,16,21/12/2025,1:00 PM,Huntington Bank Field,Cleveland Browns,Buffalo Bills,,YouTube
@@ -235,13 +237,13 @@ Match Number,Round Number,Date,Time,Location,Home Team,Away Team,Result,Broadcas
 236,16,21/12/2025,4:05 PM,Empower Field at Mile High,Denver Broncos,Jacksonville Jaguars,,YouTube
 237,16,21/12/2025,4:25 PM,Ford Field,Detroit Lions,Pittsburgh Steelers,,YouTube
 238,16,21/12/2025,4:25 PM,NRG Stadium,Houston Texans,Las Vegas Raiders,,YouTube
-226,16,20/12/2025,5:00 PM,,Soldier Field,Chicago Bears,Green Bay Packers,
-227,16,20/12/2025,5:00 PM,Northwest Stadium,Washington Commanders,Philadelphia Eagles,,YouTube
 239,16,21/12/2025,8:20 PM,Hard Rock Stadium,Miami Dolphins,Cincinnati Bengals,,YouTube
 240,16,22/12/2025,8:15 PM,Lucas Oil Stadium,Indianapolis Colts,San Francisco 49ers,,ESPN
 241,17,25/12/2025,1:00 PM,Northwest Stadium,Washington Commanders,Dallas Cowboys,,
 242,17,25/12/2025,4:30 PM,U.S. Bank Stadium,Minnesota Vikings,Detroit Lions,,
 243,17,25/12/2025,8:15 PM,GEHA Field at Arrowhead Stadium,Kansas City Chiefs,Denver Broncos,,
+255,17,27/12/2025,4:30 PM,SoFi Stadium,Los Angeles Chargers,Houston Texans,,
+254,17,27/12/2025,8:00 PM,Lambeau Field,Green Bay Packers,Baltimore Ravens,,
 244,17,28/12/2025,1:00 PM,Huntington Bank Field,Cleveland Browns,Pittsburgh Steelers,,
 245,17,28/12/2025,1:00 PM,Lucas Oil Stadium,Indianapolis Colts,Jacksonville Jaguars,,
 246,17,28/12/2025,1:00 PM,Hard Rock Stadium,Miami Dolphins,Tampa Bay Buccaneers,,
@@ -249,12 +251,10 @@ Match Number,Round Number,Date,Time,Location,Home Team,Away Team,Result,Broadcas
 248,17,28/12/2025,1:00 PM,Nissan Stadium,Tennessee Titans,New Orleans Saints,,
 249,17,28/12/2025,4:25 PM,Highmark Stadium,Buffalo Bills,Philadelphia Eagles,,
 250,17,28/12/2025,8:20 PM,Levi's Stadium,San Francisco 49ers,Chicago Bears,,
-252,17,29/12/2025,7:00 PM,Bank of America Stadium,Carolina Panthers,Seattle Seahawks,,
-253,17,29/12/2025,7:00 PM,Paycor Stadium,Cincinnati Bengals,Arizona Cardinals,,
-254,17,29/12/2025,7:00 PM,Lambeau Field,Green Bay Packers,Baltimore Ravens,,
-255,17,29/12/2025,7:00 PM,SoFi Stadium,Los Angeles Chargers,Houston Texans,,
-256,17,29/12/2025,7:00 PM,Allegiant Stadium,Las Vegas Raiders,New York Giants,,
-251,17,29/12/2025,8:15 PM,Mercedes-Benz Stadium,Atlanta Falcons,Los Angeles Rams,,
+252,17,28/12/2025,1:00 PM,Bank of America Stadium,Carolina Panthers,Seattle Seahawks,,
+253,17,28/12/2025,1:00 PM,Paycor Stadium,Cincinnati Bengals,Arizona Cardinals,,
+256,17,28/12/2025,4:00 PM,Allegiant Stadium,Las Vegas Raiders,New York Giants,,
+251,17,28/12/2025,8:15 PM,Mercedes-Benz Stadium,Atlanta Falcons,Los Angeles Rams,,
 257,18,04/01/2026,7:00 PM,Mercedes-Benz Stadium,Atlanta Falcons,New Orleans Saints,,
 258,18,04/01/2026,7:00 PM,Highmark Stadium,Buffalo Bills,New York Jets,,
 259,18,04/01/2026,7:00 PM,Soldier Field,Chicago Bears,Detroit Lions,,

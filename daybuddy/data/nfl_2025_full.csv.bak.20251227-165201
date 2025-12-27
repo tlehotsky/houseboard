@@ -1,0 +1,273 @@
+Match Number,Round Number,Date,Time,Location,Home Team,Away Team,Result,Broadcast
+1,1,04/09/2025,8:20 PM,Lincoln Financial Field,Philadelphia Eagles,Dallas Cowboys,24 - 20,
+2,1,05/09/2025,8:00 PM,Arena Corinthians,Los Angeles Chargers,Kansas City Chiefs,27 - 21,
+3,1,07/09/2025,1:00 PM,Mercedes-Benz Stadium,Atlanta Falcons,Tampa Bay Buccaneers,20 - 23,
+4,1,07/09/2025,1:00 PM,Huntington Bank Field,Cleveland Browns,Cincinnati Bengals,16 - 17,
+5,1,07/09/2025,1:00 PM,Lucas Oil Stadium,Indianapolis Colts,Miami Dolphins,33 - 8,
+6,1,07/09/2025,1:00 PM,EverBank Stadium,Jacksonville Jaguars,Carolina Panthers,26 - 10,
+7,1,07/09/2025,1:00 PM,Gillette Stadium,New England Patriots,Las Vegas Raiders,13 - 20,
+8,1,07/09/2025,1:00 PM,Caesars Superdome,New Orleans Saints,Arizona Cardinals,13 - 20,
+9,1,07/09/2025,1:00 PM,MetLife Stadium,New York Jets,Pittsburgh Steelers,32 - 34,
+10,1,07/09/2025,1:00 PM,Northwest Stadium,Washington Commanders,New York Giants,21 - 6,
+11,1,07/09/2025,4:05 PM,Empower Field at Mile High,Denver Broncos,Tennessee Titans,20 - 12,
+12,1,07/09/2025,4:05 PM,Lumen Field,Seattle Seahawks,San Francisco 49ers,13 - 17,
+13,1,07/09/2025,4:25 PM,Lambeau Field,Green Bay Packers,Detroit Lions,27 - 13,
+14,1,07/09/2025,4:25 PM,SoFi Stadium,Los Angeles Rams,Houston Texans,14 - 9,
+15,1,07/09/2025,8:20 PM,Highmark Stadium,Buffalo Bills,Baltimore Ravens,41 - 40,
+16,1,08/09/2025,8:15 PM,Soldier Field,Chicago Bears,Minnesota Vikings,24 - 27,
+17,2,11/09/2025,8:15 PM,Lambeau Field,Green Bay Packers,Washington Commanders,27 - 18,
+18,2,14/09/2025,1:00 PM,M&T Bank Stadium,Baltimore Ravens,Cleveland Browns,41 - 17,
+19,2,14/09/2025,1:00 PM,Paycor Stadium,Cincinnati Bengals,Jacksonville Jaguars,31 - 27,
+20,2,14/09/2025,1:00 PM,AT&T Stadium,Dallas Cowboys,New York Giants,40 - 37,
+21,2,14/09/2025,1:00 PM,Ford Field,Detroit Lions,Chicago Bears,52 - 21,
+22,2,14/09/2025,1:00 PM,Hard Rock Stadium,Miami Dolphins,New England Patriots,27 - 33,
+23,2,14/09/2025,1:00 PM,Caesars Superdome,New Orleans Saints,San Francisco 49ers,21 - 26,
+24,2,14/09/2025,1:00 PM,MetLife Stadium,New York Jets,Buffalo Bills,10 - 30,
+25,2,14/09/2025,1:00 PM,Acrisure Stadium,Pittsburgh Steelers,Seattle Seahawks,17 - 31,
+26,2,14/09/2025,1:00 PM,Nissan Stadium,Tennessee Titans,Los Angeles Rams,19 - 33,
+27,2,14/09/2025,4:05 PM,State Farm Stadium,Arizona Cardinals,Carolina Panthers,27 - 22,
+28,2,14/09/2025,4:05 PM,Lucas Oil Stadium,Indianapolis Colts,Denver Broncos,29 - 28,
+29,2,14/09/2025,4:25 PM,GEHA Field at Arrowhead Stadium,Kansas City Chiefs,Philadelphia Eagles,17 - 20,
+30,2,14/09/2025,8:20 PM,U.S. Bank Stadium,Minnesota Vikings,Atlanta Falcons,6 - 22,
+31,2,15/09/2025,7:00 PM,NRG Stadium,Houston Texans,Tampa Bay Buccaneers,19 - 20,
+32,2,15/09/2025,10:00 PM,Allegiant Stadium,Las Vegas Raiders,Los Angeles Chargers,9 - 20,
+33,3,18/09/2025,8:15 PM,Highmark Stadium,Buffalo Bills,Miami Dolphins,31 - 21,
+34,3,21/09/2025,1:00 PM,Bank of America Stadium,Carolina Panthers,Atlanta Falcons,30 - 0,
+35,3,21/09/2025,1:00 PM,Huntington Bank Field,Cleveland Browns,Green Bay Packers,13 - 10,
+36,3,21/09/2025,1:00 PM,EverBank Stadium,Jacksonville Jaguars,Houston Texans,17 - 10,
+37,3,21/09/2025,1:00 PM,U.S. Bank Stadium,Minnesota Vikings,Cincinnati Bengals,48 - 10,
+38,3,21/09/2025,1:00 PM,Gillette Stadium,New England Patriots,Pittsburgh Steelers,14 - 21,
+39,3,21/09/2025,1:00 PM,Lincoln Financial Field,Philadelphia Eagles,Los Angeles Rams,33 - 26,
+40,3,21/09/2025,1:00 PM,Raymond James Stadium,Tampa Bay Buccaneers,New York Jets,29 - 27,
+41,3,21/09/2025,1:00 PM,Nissan Stadium,Tennessee Titans,Indianapolis Colts,20 - 41,
+42,3,21/09/2025,1:00 PM,Northwest Stadium,Washington Commanders,Las Vegas Raiders,41 - 24,
+43,3,21/09/2025,4:05 PM,SoFi Stadium,Los Angeles Chargers,Denver Broncos,23 - 20,
+44,3,21/09/2025,4:05 PM,Lumen Field,Seattle Seahawks,New Orleans Saints,44 - 13,
+45,3,21/09/2025,4:25 PM,Soldier Field,Chicago Bears,Dallas Cowboys,31 - 14,
+46,3,21/09/2025,4:25 PM,Levi's Stadium,San Francisco 49ers,Arizona Cardinals,16 - 15,
+47,3,21/09/2025,8:20 PM,MetLife Stadium,New York Giants,Kansas City Chiefs,9 - 22,
+48,3,22/09/2025,8:15 PM,M&T Bank Stadium,Baltimore Ravens,Detroit Lions,30 - 38,
+49,4,25/09/2025,8:15 PM,State Farm Stadium,Arizona Cardinals,Seattle Seahawks,20 - 23,
+50,4,28/09/2025,9:30 AM,Croke Park,Pittsburgh Steelers,Minnesota Vikings,24 - 21,
+51,4,28/09/2025,1:00 PM,Mercedes-Benz Stadium,Atlanta Falcons,Washington Commanders,34 - 27,
+52,4,28/09/2025,1:00 PM,Highmark Stadium,Buffalo Bills,New Orleans Saints,31 - 19,
+53,4,28/09/2025,1:00 PM,Ford Field,Detroit Lions,Cleveland Browns,34 - 10,
+54,4,28/09/2025,1:00 PM,NRG Stadium,Houston Texans,Tennessee Titans,26 - 0,
+55,4,28/09/2025,1:00 PM,Gillette Stadium,New England Patriots,Carolina Panthers,42 - 13,
+56,4,28/09/2025,1:00 PM,MetLife Stadium,New York Giants,Los Angeles Chargers,21 - 18,
+57,4,28/09/2025,1:00 PM,Raymond James Stadium,Tampa Bay Buccaneers,Philadelphia Eagles,25 - 31,
+58,4,28/09/2025,4:05 PM,SoFi Stadium,Los Angeles Rams,Indianapolis Colts,27 - 20,
+59,4,28/09/2025,4:05 PM,Levi's Stadium,San Francisco 49ers,Jacksonville Jaguars,21 - 26,
+60,4,28/09/2025,4:25 PM,GEHA Field at Arrowhead Stadium,Kansas City Chiefs,Baltimore Ravens,37 - 20,
+61,4,28/09/2025,4:25 PM,Allegiant Stadium,Las Vegas Raiders,Chicago Bears,24 - 25,
+62,4,28/09/2025,8:20 PM,AT&T Stadium,Dallas Cowboys,Green Bay Packers,40 - 40,
+63,4,29/09/2025,7:15 PM,Hard Rock Stadium,Miami Dolphins,New York Jets,27 - 21,
+64,4,29/09/2025,8:15 PM,Empower Field at Mile High,Denver Broncos,Cincinnati Bengals,28 - 3,
+65,5,02/10/2025,8:15 PM,SoFi Stadium,Los Angeles Rams,San Francisco 49ers,23 - 26,
+66,5,05/10/2025,9:30 AM,Tottenham Hotspur Stadium,Cleveland Browns,Minnesota Vikings,17 - 21,
+67,5,05/10/2025,1:00 PM,M&T Bank Stadium,Baltimore Ravens,Houston Texans,10 - 44,
+68,5,05/10/2025,1:00 PM,Bank of America Stadium,Carolina Panthers,Miami Dolphins,27 - 24,
+69,5,05/10/2025,1:00 PM,Lucas Oil Stadium,Indianapolis Colts,Las Vegas Raiders,40 - 6,
+70,5,05/10/2025,1:00 PM,Caesars Superdome,New Orleans Saints,New York Giants,26 - 14,
+71,5,05/10/2025,1:00 PM,MetLife Stadium,New York Jets,Dallas Cowboys,22 - 37,
+72,5,05/10/2025,1:00 PM,Lincoln Financial Field,Philadelphia Eagles,Denver Broncos,17 - 21,
+73,5,05/10/2025,4:05 PM,State Farm Stadium,Arizona Cardinals,Tennessee Titans,21 - 22,
+74,5,05/10/2025,4:05 PM,Lumen Field,Seattle Seahawks,Tampa Bay Buccaneers,35 - 38,
+75,5,05/10/2025,4:25 PM,Paycor Stadium,Cincinnati Bengals,Detroit Lions,24 - 37,
+76,5,05/10/2025,4:25 PM,SoFi Stadium,Los Angeles Chargers,Washington Commanders,10 - 27,
+77,5,05/10/2025,8:20 PM,Highmark Stadium,Buffalo Bills,New England Patriots,20 - 23,
+78,5,06/10/2025,8:15 PM,EverBank Stadium,Jacksonville Jaguars,Kansas City Chiefs,31 - 28,
+79,6,09/10/2025,8:15 PM,MetLife Stadium,New York Giants,Philadelphia Eagles,34 - 17,
+80,6,12/10/2025,9:30 AM,Tottenham Hotspur Stadium,New York Jets,Denver Broncos,11 - 13,
+81,6,12/10/2025,1:00 PM,M&T Bank Stadium,Baltimore Ravens,Los Angeles Rams,3 - 17,
+82,6,12/10/2025,1:00 PM,Bank of America Stadium,Carolina Panthers,Dallas Cowboys,30 - 27,
+83,6,12/10/2025,1:00 PM,Lucas Oil Stadium,Indianapolis Colts,Arizona Cardinals,31 - 27,
+84,6,12/10/2025,1:00 PM,EverBank Stadium,Jacksonville Jaguars,Seattle Seahawks,12 - 20,
+85,6,12/10/2025,1:00 PM,Hard Rock Stadium,Miami Dolphins,Los Angeles Chargers,27 - 29,
+86,6,12/10/2025,1:00 PM,Acrisure Stadium,Pittsburgh Steelers,Cleveland Browns,23 - 9,
+90,6,12/10/2025,1:00 PM,Caesars Superdome,New Orleans Saints,New England Patriots,19 - 25,
+88,6,12/10/2025,4:05 PM,Allegiant Stadium,Las Vegas Raiders,Tennessee Titans,20 - 10,
+87,6,12/10/2025,4:25 PM,Raymond James Stadium,Tampa Bay Buccaneers,San Francisco 49ers,30 - 19,
+89,6,12/10/2025,4:25 PM,Lambeau Field,Green Bay Packers,Cincinnati Bengals,27 - 18,
+91,6,12/10/2025,8:20 PM,GEHA Field at Arrowhead Stadium,Kansas City Chiefs,Detroit Lions,30 - 17,
+92,6,13/10/2025,7:15 PM,Mercedes-Benz Stadium,Atlanta Falcons,Buffalo Bills,24 - 14,
+93,6,13/10/2025,8:15 PM,Northwest Stadium,Washington Commanders,Chicago Bears,24 - 25,
+94,7,16/10/2025,8:15 PM,Paycor Stadium,Cincinnati Bengals,Pittsburgh Steelers,33 - 31,
+95,7,19/10/2025,9:30 AM,Wembley Stadium,Jacksonville Jaguars,Los Angeles Rams,7 - 35,
+96,7,19/10/2025,1:00 PM,Soldier Field,Chicago Bears,New Orleans Saints,26 - 14,
+97,7,19/10/2025,1:00 PM,Huntington Bank Field,Cleveland Browns,Miami Dolphins,31 - 6,
+98,7,19/10/2025,1:00 PM,GEHA Field at Arrowhead Stadium,Kansas City Chiefs,Las Vegas Raiders,31 - 0,
+99,7,19/10/2025,1:00 PM,U.S. Bank Stadium,Minnesota Vikings,Philadelphia Eagles,22 - 28,
+100,7,19/10/2025,1:00 PM,MetLife Stadium,New York Jets,Carolina Panthers,6 - 13,
+101,7,19/10/2025,1:00 PM,Nissan Stadium,Tennessee Titans,New England Patriots,13 - 31,
+102,7,19/10/2025,4:05 PM,Empower Field at Mile High,Denver Broncos,New York Giants,33 - 32,
+103,7,19/10/2025,4:05 PM,SoFi Stadium,Los Angeles Chargers,Indianapolis Colts,24 - 38,
+104,7,19/10/2025,4:25 PM,State Farm Stadium,Arizona Cardinals,Green Bay Packers,23 - 27,
+105,7,19/10/2025,4:25 PM,AT&T Stadium,Dallas Cowboys,Washington Commanders,44 - 22,
+106,7,19/10/2025,8:20 PM,Levi's Stadium,San Francisco 49ers,Atlanta Falcons,20 - 10,
+107,7,20/10/2025,7:00 PM,Ford Field,Detroit Lions,Tampa Bay Buccaneers,24 - 9,
+108,7,20/10/2025,10:00 PM,Lumen Field,Seattle Seahawks,Houston Texans,27 - 19,
+109,8,23/10/2025,8:15 PM,SoFi Stadium,Los Angeles Chargers,Minnesota Vikings,37 - 10,
+110,8,26/10/2025,1:00 PM,Mercedes-Benz Stadium,Atlanta Falcons,Miami Dolphins,10 - 34,
+111,8,26/10/2025,1:00 PM,M&T Bank Stadium,Baltimore Ravens,Chicago Bears,30 - 16,
+112,8,26/10/2025,1:00 PM,Bank of America Stadium,Carolina Panthers,Buffalo Bills,9 - 40,
+113,8,26/10/2025,1:00 PM,Paycor Stadium,Cincinnati Bengals,New York Jets,38 - 39,
+114,8,26/10/2025,1:00 PM,NRG Stadium,Houston Texans,San Francisco 49ers,26 - 15,
+115,8,26/10/2025,1:00 PM,Gillette Stadium,New England Patriots,Cleveland Browns,32 - 13,
+116,8,26/10/2025,1:00 PM,Lincoln Financial Field,Philadelphia Eagles,New York Giants,38 - 20,
+117,8,26/10/2025,4:05 PM,Caesars Superdome,New Orleans Saints,Tampa Bay Buccaneers,3 - 23,
+118,8,26/10/2025,4:25 PM,Empower Field at Mile High,Denver Broncos,Dallas Cowboys,44 - 24,
+119,8,26/10/2025,4:25 PM,Lucas Oil Stadium,Indianapolis Colts,Tennessee Titans,38 - 14,
+120,8,26/10/2025,8:20 PM,Acrisure Stadium,Pittsburgh Steelers,Green Bay Packers,25 - 35,
+121,8,27/10/2025,8:15 PM,GEHA Field at Arrowhead Stadium,Kansas City Chiefs,Washington Commanders,28 - 7,
+122,9,30/10/2025,8:15 PM,Hard Rock Stadium,Miami Dolphins,Baltimore Ravens,6 - 28,
+123,9,02/11/2025,1:00 PM,Paycor Stadium,Cincinnati Bengals,Chicago Bears,42 - 47,
+124,9,02/11/2025,1:00 PM,Ford Field,Detroit Lions,Minnesota Vikings,24 - 27,
+125,9,02/11/2025,1:00 PM,Lambeau Field,Green Bay Packers,Carolina Panthers,13 - 16,
+126,9,02/11/2025,1:00 PM,NRG Stadium,Houston Texans,Denver Broncos,15 - 18,
+127,9,02/11/2025,1:00 PM,Gillette Stadium,New England Patriots,Atlanta Falcons,24 - 23,
+128,9,02/11/2025,1:00 PM,MetLife Stadium,New York Giants,San Francisco 49ers,24 - 34,
+129,9,02/11/2025,1:00 PM,Acrisure Stadium,Pittsburgh Steelers,Indianapolis Colts,27 - 20,
+130,9,02/11/2025,1:00 PM,Nissan Stadium,Tennessee Titans,Los Angeles Chargers,20 - 27,
+131,9,02/11/2025,4:05 PM,SoFi Stadium,Los Angeles Rams,New Orleans Saints,34 - 10,
+132,9,02/11/2025,4:05 PM,Allegiant Stadium,Las Vegas Raiders,Jacksonville Jaguars,29 - 30,
+133,9,02/11/2025,4:25 PM,Highmark Stadium,Buffalo Bills,Kansas City Chiefs,28 - 21,
+134,9,02/11/2025,8:20 PM,Northwest Stadium,Washington Commanders,Seattle Seahawks,14 - 38,
+135,9,03/11/2025,8:15 PM,AT&T Stadium,Dallas Cowboys,Arizona Cardinals,17 - 27,
+136,10,06/11/2025,8:15 PM,Empower Field at Mile High,Denver Broncos,Las Vegas Raiders,10 - 7,
+137,10,09/11/2025,9:30 AM,Olympic Stadium,Indianapolis Colts,Atlanta Falcons,31 - 25,
+138,10,09/11/2025,1:00 PM,Bank of America Stadium,Carolina Panthers,New Orleans Saints,7 - 17,
+139,10,09/11/2025,1:00 PM,Soldier Field,Chicago Bears,New York Giants,24 - 20,
+140,10,09/11/2025,1:00 PM,NRG Stadium,Houston Texans,Jacksonville Jaguars,36 - 29,
+141,10,09/11/2025,1:00 PM,Hard Rock Stadium,Miami Dolphins,Buffalo Bills,30 - 13,
+142,10,09/11/2025,1:00 PM,U.S. Bank Stadium,Minnesota Vikings,Baltimore Ravens,19 - 27,
+143,10,09/11/2025,1:00 PM,MetLife Stadium,New York Jets,Cleveland Browns,27 - 20,
+144,10,09/11/2025,1:00 PM,Raymond James Stadium,Tampa Bay Buccaneers,New England Patriots,23 - 28,
+145,10,09/11/2025,4:05 PM,Lumen Field,Seattle Seahawks,Arizona Cardinals,44 - 22,
+146,10,09/11/2025,4:25 PM,Levi's Stadium,San Francisco 49ers,Los Angeles Rams,26 - 42,
+147,10,09/11/2025,4:25 PM,Northwest Stadium,Washington Commanders,Detroit Lions,22 - 44,
+148,10,09/11/2025,8:20 PM,SoFi Stadium,Los Angeles Chargers,Pittsburgh Steelers,25 - 10,
+149,10,10/11/2025,8:15 PM,Lambeau Field,Green Bay Packers,Philadelphia Eagles,7 - 10,
+150,11,13/11/2025,8:15 PM,Gillette Stadium,New England Patriots,New York Jets,27 - 14,
+151,11,16/11/2025,9:30 AM,Santiago Bernabeu Stadium,Miami Dolphins,Washington Commanders,,
+152,11,16/11/2025,1:00 PM,Mercedes-Benz Stadium,Atlanta Falcons,Carolina Panthers,,
+153,11,16/11/2025,1:00 PM,Highmark Stadium,Buffalo Bills,Tampa Bay Buccaneers,,
+154,11,16/11/2025,1:00 PM,EverBank Stadium,Jacksonville Jaguars,Los Angeles Chargers,,
+155,11,16/11/2025,1:00 PM,U.S. Bank Stadium,Minnesota Vikings,Chicago Bears,,
+156,11,16/11/2025,1:00 PM,MetLife Stadium,New York Giants,Green Bay Packers,,
+157,11,16/11/2025,1:00 PM,Acrisure Stadium,Pittsburgh Steelers,Cincinnati Bengals,,
+158,11,16/11/2025,1:00 PM,Nissan Stadium,Tennessee Titans,Houston Texans,,
+159,11,16/11/2025,4:05 PM,State Farm Stadium,Arizona Cardinals,San Francisco 49ers,,
+160,11,16/11/2025,4:05 PM,SoFi Stadium,Los Angeles Rams,Seattle Seahawks,,
+161,11,16/11/2025,4:25 PM,Huntington Bank Field,Cleveland Browns,Baltimore Ravens,,
+162,11,16/11/2025,4:25 PM,Empower Field at Mile High,Denver Broncos,Kansas City Chiefs,,
+163,11,16/11/2025,8:20 PM,Lincoln Financial Field,Philadelphia Eagles,Detroit Lions,,
+164,11,17/11/2025,8:15 PM,Allegiant Stadium,Las Vegas Raiders,Dallas Cowboys,,
+165,12,20/11/2025,8:15 PM,NRG Stadium,Houston Texans,Buffalo Bills,,
+166,12,23/11/2025,1:00 PM,M&T Bank Stadium,Baltimore Ravens,New York Jets,,
+167,12,23/11/2025,1:00 PM,Soldier Field,Chicago Bears,Pittsburgh Steelers,,
+168,12,23/11/2025,1:00 PM,Paycor Stadium,Cincinnati Bengals,New England Patriots,,
+169,12,23/11/2025,1:00 PM,Ford Field,Detroit Lions,New York Giants,,
+170,12,23/11/2025,1:00 PM,Lambeau Field,Green Bay Packers,Minnesota Vikings,,
+171,12,23/11/2025,1:00 PM,GEHA Field at Arrowhead Stadium,Kansas City Chiefs,Indianapolis Colts,,
+172,12,23/11/2025,1:00 PM,Nissan Stadium,Tennessee Titans,Seattle Seahawks,,
+173,12,23/11/2025,4:05 PM,State Farm Stadium,Arizona Cardinals,Jacksonville Jaguars,,
+174,12,23/11/2025,4:05 PM,Allegiant Stadium,Las Vegas Raiders,Cleveland Browns,,
+175,12,23/11/2025,4:25 PM,AT&T Stadium,Dallas Cowboys,Philadelphia Eagles,,
+176,12,23/11/2025,4:25 PM,Caesars Superdome,New Orleans Saints,Atlanta Falcons,,
+177,12,23/11/2025,8:20 PM,SoFi Stadium,Los Angeles Rams,Tampa Bay Buccaneers,,
+178,12,24/11/2025,8:15 PM,Levi's Stadium,San Francisco 49ers,Carolina Panthers,,
+179,13,27/11/2025,1:00 PM,Ford Field,Detroit Lions,Green Bay Packers,,
+180,13,27/11/2025,4:30 PM,AT&T Stadium,Dallas Cowboys,Kansas City Chiefs,,NBC
+181,13,27/11/2025,8:20 PM,M&T Bank Stadium,Baltimore Ravens,Cincinnati Bengals,,YouTube
+182,13,28/11/2025,3:00 PM,Lincoln Financial Field,Philadelphia Eagles,Chicago Bears,,YouTube
+183,13,30/11/2025,1:00 PM,Bank of America Stadium,Carolina Panthers,Los Angeles Rams,,YouTube
+184,13,30/11/2025,1:00 PM,Huntington Bank Field,Cleveland Browns,San Francisco 49ers,,YouTube
+185,13,30/11/2025,1:00 PM,Lucas Oil Stadium,Indianapolis Colts,Houston Texans,,CBS
+186,13,30/11/2025,1:00 PM,Hard Rock Stadium,Miami Dolphins,New Orleans Saints,,YouTube
+187,13,30/11/2025,1:00 PM,MetLife Stadium,New York Jets,Atlanta Falcons,,FOX
+188,13,30/11/2025,1:00 PM,Raymond James Stadium,Tampa Bay Buccaneers,Arizona Cardinals,,YouTube
+189,13,30/11/2025,1:00 PM,Nissan Stadium,Tennessee Titans,Jacksonville Jaguars,,YouTube
+190,13,30/11/2025,4:05 PM,Lumen Field,Seattle Seahawks,Minnesota Vikings,,YouTube
+191,13,30/11/2025,4:25 PM,SoFi Stadium,Los Angeles Chargers,Las Vegas Raiders,,YouTube
+192,13,30/11/2025,4:25 PM,Acrisure Stadium,Pittsburgh Steelers,Buffalo Bills,,CBS
+193,13,30/11/2025,8:20 PM,Northwest Stadium,Washington Commanders,Denver Broncos,,NBC
+194,13,01/12/2025,8:15 PM,Gillette Stadium,New England Patriots,New York Giants,,ESPN
+195,14,04/12/2025,8:15 PM,Ford Field,Detroit Lions,Dallas Cowboys,,CBS
+196,14,07/12/2025,1:00 PM,Mercedes-Benz Stadium,Atlanta Falcons,Seattle Seahawks,,YouTube
+197,14,07/12/2025,1:00 PM,M&T Bank Stadium,Baltimore Ravens,Pittsburgh Steelers,,YouTube
+198,14,07/12/2025,1:00 PM,Huntington Bank Field,Cleveland Browns,Tennessee Titans,,YouTube
+199,14,07/12/2025,1:00 PM,Lambeau Field,Green Bay Packers,Chicago Bears,,YouTube
+200,14,07/12/2025,1:00 PM,EverBank Stadium,Jacksonville Jaguars,Indianapolis Colts,,YouTube
+201,14,07/12/2025,1:00 PM,U.S. Bank Stadium,Minnesota Vikings,Washington Commanders,,YouTube
+202,14,07/12/2025,1:00 PM,MetLife Stadium,New York Jets,Miami Dolphins,,CBS
+203,14,07/12/2025,1:00 PM,Raymond James Stadium,Tampa Bay Buccaneers,New Orleans Saints,,YouTube
+204,14,07/12/2025,4:05 PM,Allegiant Stadium,Las Vegas Raiders,Denver Broncos,,YouTube
+205,14,07/12/2025,4:25 PM,State Farm Stadium,Arizona Cardinals,Los Angeles Rams,,YouTube
+206,14,07/12/2025,4:25 PM,Highmark Stadium,Buffalo Bills,Cincinnati Bengals,,FOX
+207,14,07/12/2025,8:20 PM,GEHA Field at Arrowhead Stadium,Kansas City Chiefs,Houston Texans,,NBC
+208,14,08/12/2025,8:15 PM,SoFi Stadium,Los Angeles Chargers,Philadelphia Eagles,,ESPN
+209,15,11/12/2025,8:15 PM,Raymond James Stadium,Tampa Bay Buccaneers,Atlanta Falcons,,Prime
+210,15,14/12/2025,1:00 PM,Soldier Field,Chicago Bears,Cleveland Browns,,YouTube
+211,15,14/12/2025,1:00 PM,Paycor Stadium,Cincinnati Bengals,Baltimore Ravens,,YouTube
+212,15,14/12/2025,1:00 PM,NRG Stadium,Houston Texans,Arizona Cardinals,,YouTube
+213,15,14/12/2025,1:00 PM,EverBank Stadium,Jacksonville Jaguars,New York Jets,,CBS
+214,15,14/12/2025,1:00 PM,GEHA Field at Arrowhead Stadium,Kansas City Chiefs,Los Angeles Chargers,,YouTube
+215,15,14/12/2025,1:00 PM,Gillette Stadium,New England Patriots,Buffalo Bills,,YouTube
+216,15,14/12/2025,1:00 PM,MetLife Stadium,New York Giants,Washington Commanders,,FOX
+217,15,14/12/2025,1:00 PM,Lincoln Financial Field,Philadelphia Eagles,Las Vegas Raiders,,YouTube
+218,15,14/12/2025,4:25 PM,Empower Field at Mile High,Denver Broncos,Green Bay Packers,,CBS
+219,15,14/12/2025,4:25 PM,SoFi Stadium,Los Angeles Rams,Detroit Lions,,FOX
+220,15,14/12/2025,4:25 PM,Caesars Superdome,New Orleans Saints,Carolina Panthers,,YouTube
+221,15,14/12/2025,4:25 PM,Lumen Field,Seattle Seahawks,Indianapolis Colts,,YouTube
+222,15,14/12/2025,4:25 PM,Levi's Stadium,San Francisco 49ers,Tennessee Titans,,YouTube
+223,15,14/12/2025,8:20 PM,AT&T Stadium,Dallas Cowboys,Minnesota Vikings,,NBC
+224,15,15/12/2025,8:15 PM,Acrisure Stadium,Pittsburgh Steelers,Miami Dolphins,,ESPN
+225,16,18/12/2025,8:15 PM,Lumen Field,Seattle Seahawks,Los Angeles Rams,,Prime
+228,16,21/12/2025,1:00 PM,M&T Bank Stadium,Baltimore Ravens,New England Patriots,,NBC
+229,16,21/12/2025,1:00 PM,Bank of America Stadium,Carolina Panthers,Tampa Bay Buccaneers,,YouTube
+230,16,21/12/2025,1:00 PM,Huntington Bank Field,Cleveland Browns,Buffalo Bills,,YouTube
+231,16,21/12/2025,1:00 PM,AT&T Stadium,Dallas Cowboys,Los Angeles Chargers,,YouTube
+232,16,21/12/2025,1:00 PM,Caesars Superdome,New Orleans Saints,New York Jets,,CBS
+233,16,21/12/2025,1:00 PM,MetLife Stadium,New York Giants,Minnesota Vikings,,FOX
+234,16,21/12/2025,1:00 PM,Nissan Stadium,Tennessee Titans,Kansas City Chiefs,,YouTube
+235,16,21/12/2025,4:05 PM,State Farm Stadium,Arizona Cardinals,Atlanta Falcons,,YouTube
+236,16,21/12/2025,4:05 PM,Empower Field at Mile High,Denver Broncos,Jacksonville Jaguars,,YouTube
+237,16,21/12/2025,4:25 PM,Ford Field,Detroit Lions,Pittsburgh Steelers,,YouTube
+238,16,21/12/2025,4:25 PM,NRG Stadium,Houston Texans,Las Vegas Raiders,,YouTube
+226,16,20/12/2025,5:00 PM,,Soldier Field,Chicago Bears,Green Bay Packers,
+227,16,20/12/2025,5:00 PM,Northwest Stadium,Washington Commanders,Philadelphia Eagles,,YouTube
+239,16,21/12/2025,8:20 PM,Hard Rock Stadium,Miami Dolphins,Cincinnati Bengals,,YouTube
+240,16,22/12/2025,8:15 PM,Lucas Oil Stadium,Indianapolis Colts,San Francisco 49ers,,ESPN
+241,17,25/12/2025,1:00 PM,Northwest Stadium,Washington Commanders,Dallas Cowboys,,
+242,17,25/12/2025,4:30 PM,U.S. Bank Stadium,Minnesota Vikings,Detroit Lions,,
+243,17,25/12/2025,8:15 PM,GEHA Field at Arrowhead Stadium,Kansas City Chiefs,Denver Broncos,,
+244,17,28/12/2025,1:00 PM,Huntington Bank Field,Cleveland Browns,Pittsburgh Steelers,,
+245,17,28/12/2025,1:00 PM,Lucas Oil Stadium,Indianapolis Colts,Jacksonville Jaguars,,
+246,17,28/12/2025,1:00 PM,Hard Rock Stadium,Miami Dolphins,Tampa Bay Buccaneers,,
+247,17,28/12/2025,1:00 PM,MetLife Stadium,New York Jets,New England Patriots,,
+248,17,28/12/2025,1:00 PM,Nissan Stadium,Tennessee Titans,New Orleans Saints,,
+249,17,28/12/2025,4:25 PM,Highmark Stadium,Buffalo Bills,Philadelphia Eagles,,
+250,17,28/12/2025,8:20 PM,Levi's Stadium,San Francisco 49ers,Chicago Bears,,
+252,17,29/12/2025,7:00 PM,Bank of America Stadium,Carolina Panthers,Seattle Seahawks,,
+253,17,29/12/2025,7:00 PM,Paycor Stadium,Cincinnati Bengals,Arizona Cardinals,,
+254,17,27/12/2025,8:00 PM,Lambeau Field,Green Bay Packers,Baltimore Ravens,,
+255,17,27/12/2025,4:30 PM,SoFi Stadium,Los Angeles Chargers,Houston Texans,,
+256,17,29/12/2025,7:00 PM,Allegiant Stadium,Las Vegas Raiders,New York Giants,,
+251,17,29/12/2025,8:15 PM,Mercedes-Benz Stadium,Atlanta Falcons,Los Angeles Rams,,
+257,18,04/01/2026,7:00 PM,Mercedes-Benz Stadium,Atlanta Falcons,New Orleans Saints,,
+258,18,04/01/2026,7:00 PM,Highmark Stadium,Buffalo Bills,New York Jets,,
+259,18,04/01/2026,7:00 PM,Soldier Field,Chicago Bears,Detroit Lions,,
+260,18,04/01/2026,7:00 PM,Paycor Stadium,Cincinnati Bengals,Cleveland Browns,,
+261,18,04/01/2026,7:00 PM,Empower Field at Mile High,Denver Broncos,Los Angeles Chargers,,
+262,18,04/01/2026,7:00 PM,NRG Stadium,Houston Texans,Indianapolis Colts,,
+263,18,04/01/2026,7:00 PM,EverBank Stadium,Jacksonville Jaguars,Tennessee Titans,,
+264,18,04/01/2026,7:00 PM,SoFi Stadium,Los Angeles Rams,Arizona Cardinals,,
+265,18,04/01/2026,7:00 PM,Allegiant Stadium,Las Vegas Raiders,Kansas City Chiefs,,
+266,18,04/01/2026,7:00 PM,U.S. Bank Stadium,Minnesota Vikings,Green Bay Packers,,
+267,18,04/01/2026,7:00 PM,Gillette Stadium,New England Patriots,Miami Dolphins,,
+268,18,04/01/2026,7:00 PM,MetLife Stadium,New York Giants,Dallas Cowboys,,
+269,18,04/01/2026,7:00 PM,Lincoln Financial Field,Philadelphia Eagles,Washington Commanders,,
+270,18,04/01/2026,7:00 PM,Acrisure Stadium,Pittsburgh Steelers,Baltimore Ravens,,
+271,18,04/01/2026,7:00 PM,Levi's Stadium,San Francisco 49ers,Seattle Seahawks,,
+272,18,04/01/2026,7:00 PM,Raymond James Stadium,Tampa Bay Buccaneers,Carolina Panthers,,
