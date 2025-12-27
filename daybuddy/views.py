@@ -881,18 +881,71 @@ def _fetch_cal(url: str) -> Calendar:
 def _expand(cal: Calendar, start: datetime.date, end: datetime.date, person: dict):
     """Expand VEVENTs into per-day entries within [start, end]."""
     evts = []
+
+    def _fmt_time_label(dt):
+        """Return compact label like '2:00pm' that parseStartMinutes() accepts."""
+        if not isinstance(dt, datetime.datetime):
+            return ""
+        try:
+            return dt.strftime("%-I:%M%p").lower()   # linux
+        except Exception:
+            return dt.strftime("%I:%M%p").lstrip("0").lower()    
+
+
+
     for comp in cal.walk("vevent"):
         try:
             summary = str(comp.get("summary", ""))
             dtstart = comp.decoded("dtstart")
-            dtend = comp.decoded("dtend") if comp.get("dtend") else dtstart
 
-            # Normalize timezone-aware datetimes to naive local (drop tzinfo) so
-            # we don't mix aware and naive datetimes in rrulestr/between().
-            if isinstance(dtstart, datetime.datetime) and dtstart.tzinfo:
-                dtstart = dtstart.replace(tzinfo=None)
-            if isinstance(dtend, datetime.datetime) and dtend.tzinfo:
-                dtend = dtend.replace(tzinfo=None)
+            # Prefer DTEND; fall back to DURATION; finally default to 1 hour for timed events.
+            dtend = None
+            if comp.get("dtend"):
+                try:
+                    dtend = comp.decoded("dtend")
+                except Exception:
+                    dtend = None
+
+            if dtend is None and comp.get("duration"):
+                try:
+                    dur = comp.decoded("duration")  # timedelta
+                    if dur:
+                        dtend = dtstart + dur
+                except Exception:
+                    dtend = None
+
+            if dtend is None:
+                if isinstance(dtstart, datetime.datetime):
+                    dtend = dtstart + datetime.timedelta(hours=1)
+                else:
+                    dtend = dtstart
+
+            # Normalize timezone-aware datetimes to *local* naive.
+            try:
+                if isinstance(dtstart, datetime.datetime) and timezone.is_aware(dtstart):
+                    dtstart = timezone.localtime(dtstart).replace(tzinfo=None)
+                elif isinstance(dtstart, datetime.datetime) and dtstart.tzinfo:
+                    dtstart = dtstart.replace(tzinfo=None)
+
+                if isinstance(dtend, datetime.datetime) and timezone.is_aware(dtend):
+                    dtend = timezone.localtime(dtend).replace(tzinfo=None)
+                elif isinstance(dtend, datetime.datetime) and dtend.tzinfo:
+                    dtend = dtend.replace(tzinfo=None)
+            except Exception:
+                if isinstance(dtstart, datetime.datetime) and getattr(dtstart, "tzinfo", None):
+                    dtstart = dtstart.replace(tzinfo=None)
+                if isinstance(dtend, datetime.datetime) and getattr(dtend, "tzinfo", None):
+                    dtend = dtend.replace(tzinfo=None)
+
+            # Preserve original duration for recurring instances.
+            duration_td = datetime.timedelta(hours=1)
+            try:
+                if isinstance(dtstart, datetime.datetime) and isinstance(dtend, datetime.datetime):
+                    duration_td = dtend - dtstart
+                    if duration_td.total_seconds() <= 0:
+                        duration_td = datetime.timedelta(hours=1)
+            except Exception:
+                duration_td = datetime.timedelta(hours=1)
 
             # normalize to date-only for boundaries
             ds = dtstart.date() if isinstance(dtstart, datetime.datetime) else dtstart
@@ -1099,18 +1152,19 @@ def _expand(cal: Calendar, start: datetime.date, end: datetime.date, person: dic
                         continue
                     seen.add(occ_dt)
 
+                    # Timed recurring events: preserve duration per occurrence.
+                    start_dt = occ_dt
+                    end_dt = occ_dt + duration_td if isinstance(dtstart, _dt.datetime) else None
+
                     evts.append(
                         dict(
                             pid=person.get("id"),
                             who=person.get("name"),
                             color=person.get("color"),
-                            date=occ_dt.date(),
+                            date=start_dt.date(),
                             all_day=not isinstance(dtstart, _dt.datetime),
-                            time_label=(
-                                occ_dt.strftime("%-I:%M%p").lower()
-                                if isinstance(dtstart, _dt.datetime)
-                                else ""
-                            ),
+                            time_label=(_fmt_time_label(start_dt) if isinstance(dtstart, _dt.datetime) else ""),
+                            end_time_label=(_fmt_time_label(end_dt) if (isinstance(dtstart, _dt.datetime) and end_dt) else ""),
                             title=summary,
                         )
                     )
@@ -1129,7 +1183,12 @@ def _expand(cal: Calendar, start: datetime.date, end: datetime.date, person: dic
                             date=cur,
                             all_day=not isinstance(dtstart, datetime.datetime),
                             time_label=(
-                                dtstart.strftime("%-I:%M%p").lower()
+                                _fmt_time_label(dtstart)
+                                if isinstance(dtstart, datetime.datetime) and cur == ds
+                                else ""
+                            ),
+                            end_time_label=(
+                                _fmt_time_label(dtend)
                                 if isinstance(dtstart, datetime.datetime) and cur == ds
                                 else ""
                             ),
@@ -1141,6 +1200,10 @@ def _expand(cal: Calendar, start: datetime.date, end: datetime.date, person: dic
             # keep going but log parsing issue
             print(f"[DayBuddy] Parse error for {person.get('name')} event: {e}")
             continue
+    # Ensure key exists on every event dict (template uses default anyway, but this keeps shapes consistent).
+    for e in evts:
+        if "end_time_label" not in e:
+            e["end_time_label"] = ""
     return evts
 
 
