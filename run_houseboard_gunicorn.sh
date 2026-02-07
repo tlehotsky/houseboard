@@ -6,4 +6,8 @@ env | sort > /tmp/houseboard-gunicorn-env.txt
 
 exec /home/tlehotsky/.local/bin/gunicorn core.wsgi:application \
   --bind 0.0.0.0:8821 \
-  --workers 3
+  --workers 3 \
+  --timeout 180 \
+  --graceful-timeout 30 \
+  --access-logfile - \
+  --error-logfile -
