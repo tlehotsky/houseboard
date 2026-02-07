@@ -161,7 +161,8 @@ body::after{
 
 
 
-/* NFL schedule card as 7-day#card-slideshow #slide-bar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:6px}
+/* NFL schedule card as 7-day */
+#card-slideshow #slide-bar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:6px}
 
 /* NFL schedule card as 7-day row with auto-width tiles */
 #card-nfl #nfl-sched{
@@ -481,19 +482,63 @@ body::after{
 .timegrid .overlay{ position:absolute; top:0; bottom:0; left:var(--gutter); right:0; z-index:2; pointer-events:none; }
 .timegrid .overlay .evt{ position:absolute; left:2px; right:2px; margin:0; padding-top:4px; }
 /* ---- Footer buttons ----------------------------------------------------- */
-.footer{position:fixed;left:0;right:0;bottom:0;background:#0f1217;border-top:1px solid #1a1d22;padding:8px;display:flex;gap:8px;justify-content:center}
-.footer button{
+.footer{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:0;
+  background:#0f1217;
+  border-top:1px solid #1a1d22;
+  padding:8px 12px;
+
+  /* Use a 7-column grid so each label has a predictable slot */
+  display:grid;
+  grid-template-columns:repeat(7, minmax(0, 1fr));
+  gap:8px;
+  align-items:center;
+}
+
+ .footer button{
   background:#1a2333;
   color:#f2f5f9;
   border:1px solid #2a3750;
   border-radius:10px;
   padding:10px 14px;
   font-weight:600;
+  font-size:2em;
   cursor:pointer;
-  transition:transform .06s ease, background .12s ease, border-color .12s ease
+
+  /* make each button center itself within its grid column */
+  justify-self:center;
+
+  /* Per-button fine-tuning:
+     Use transform so it is visually obvious AND works regardless of grid sizing.
+     We keep X in a CSS var and add Y on hover/active without overwriting X. */
+  --x: 0px;
+  --y: 0px;
+  transform: translateX(var(--x)) translateY(var(--y));
+
+  transition: transform .06s ease, background .12s ease, border-color .12s ease;
 }
-.footer button:hover{transform:translateY(-1px);background:#21314a;border-color:#3b5172}
-.footer button:active{transform:translateY(0)}
+
+.footer button:hover{
+  --y: -1px;
+  background:#21314a;
+  border-color:#3b5172;
+}
+
+.footer button:active{
+  --y: 0px;
+}
+
+/* Per-button fine-tuning: start with BIG offsets so we can confirm it works, then dial in */
+.footer button[data-act="prev"]  { --x: -120px; }
+.footer button[data-act="today"] { --x: -60px; }
+.footer button[data-act="next"]  { --x: -20px; }
+.footer button[data-act="mode"]  { --x:  20px; }
+.footer button[data-act="open"]  { --x:  60px; }
+.footer button[data-act="but6"]  { --x: 120px; }
+.footer button[data-act="but7"]  { --x: 180px; }
 
 /* ---- Slide-out menu ----------------------------------------------------- */
 #gear{position:fixed;top:14px;right:14px;background:#1a2333;border:1px solid #2a3750;color:#f2f5f9;border-radius:10px;padding:10px 12px;font-weight:600;cursor:pointer;z-index:20}
@@ -607,7 +652,7 @@ body::after{
           </a>
         </h4>        
         <div id="rangers-sched">Loading schedule… </div>
-        <div id="devils-suck">DEVILS SUCK</div>
+        <div id="devils-suck">DEVILS SUCK, Rangers even worse</div>
 
         <img id="rangers-logo" src="https://a.espncdn.com/i/teamlogos/nhl/500/nyr.png" style="width:8%;height:auto;" alt="New York Rangers logo">
       </div>
@@ -857,11 +902,13 @@ body::after{
 </div>
 
 <div class="footer">
-  <button data-act="prev">◀ Prev</button>
-  <button data-act="today">Today</button>
-  <button data-act="next">Next ▶</button>
-  <button data-act="mode">Mode</button>
-  <button data-act="open">Open</button>
+  <button data-act="prev">Default</button>
+  <button data-act="today">Month</button>
+  <button data-act="next">Cameras</button>
+  <button data-act="mode">But4</button>
+  <button data-act="open">RELOAD</button>
+  <button data-act="but6">KILL PiC</button>
+  <button data-act="but7">LIKE PiC</button>
 </div>
 
 <script>
