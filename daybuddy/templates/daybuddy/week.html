@@ -1,5 +1,4 @@
 <!doctype html><meta charset="utf-8"><title>HouseBoard – DayBuddy</title>
-<!doctype html><meta charset="utf-8"><title>HouseBoard – DayBuddy</title>
 {% load static %}
 <style>
 /* ---- Base --------------------------------------------------------------- */
@@ -72,9 +71,7 @@ body::after{
 }
 .card{background:#1b1f29;border:1px solid #333;border-radius:10px;padding:12px;min-width:0}
 .card h4{margin:0 0 4px 0;font-weight:700;opacity:.9}
-# Tightened temperature card vertical spacing
 /* Tightened temperature card vertical spacing */
-.card h4{margin:0 0 4px 0;font-weight:700;opacity:.9}
 .card .big{font-size:176px;font-weight:800;letter-spacing:0.5px;line-height:.85;margin:0}
 .card .big .unit{ font-size:0.5em; margin-left:6px; opacity:.9; }
 .card .muted{opacity:.75;font-size:14px;margin-top:4px}
@@ -225,17 +222,6 @@ body::after{
 #card-slideshow #slide-bar .meta{ text-align:right; }
 #card-slideshow{ justify-self:stretch; }
 #card-slideshow img{ max-height: 40vh; }
-/* #archive-photo-btn{background:#2a354a;color:#f2f5f9;border:1px solid #3b4765;border-radius:8px;padding:4px 10px;font-size:13px;font-weight:500;cursor:pointer;}
-#archive-photo-btn:hover{background:#34415a;border-color:#4d5c7a;}
-
-/* Bottom row: slideshow on the left, health cards stacked on the right */
-.card-row-bottom{
-  grid-column:1 / -1;
-  display:grid;
-  grid-template-columns:minmax(0,3fr) minmax(0,1fr);
-  gap:12px;
-  align-items:flex-start;
-} */
 
 
 #archive-photo-btn{background:#2a354a;color:#f2f5f9;border:1px solid #3b4765;border-radius:8px;padding:4px 10px;font-size:13px;font-weight:500;cursor:pointer;}
@@ -487,33 +473,40 @@ body::after{
   left:0;
   right:0;
   bottom:0;
-  background:#0f1217;
+  background:#707274;
   border-top:1px solid #1a1d22;
   padding:8px 12px;
 
-  /* Use a 7-column grid so each label has a predictable slot */
+  /* Keep 7 buttons, but size columns to the pill content so they can sit closer together */
   display:grid;
-  grid-template-columns:repeat(7, minmax(0, 1fr));
-  gap:8px;
+  grid-template-columns:repeat(7, max-content);
+  justify-content:center;
+  gap:18px;
   align-items:center;
 }
 
- .footer button{
-  background:#1a2333;
-  color:#f2f5f9;
-  border:1px solid #2a3750;
-  border-radius:10px;
-  padding:10px 14px;
-  font-weight:600;
-  font-size:2em;
+.footer button{
+  background:#8d8e92;
+  color:#040002;
+  border:2px solid #ff00ff;          /* DEBUG: make it obvious these styles are applied */
+  border-radius:6px;
+  padding:6px 10px 6px;   /* tighter pill */
+  line-height:1.05;   /* reduce vertical air */
+  font-weight:700;
+  font-size:28px;
   cursor:pointer;
+  white-space:nowrap;
+  margin-bottom: 10px;
 
-  /* make each button center itself within its grid column */
+  /* Fill the grid cell so we can see alignment clearly */
+  width:auto;
   justify-self:center;
+  /*text-align:center;*/
+
 
   /* Per-button fine-tuning:
-     Use transform so it is visually obvious AND works regardless of grid sizing.
-     We keep X in a CSS var and add Y on hover/active without overwriting X. */
+     Apply X and Y via transform so it always moves visually (grid-safe).
+     X is translateX(--x), Y is translateY(--y). */
   --x: 0px;
   --y: 0px;
   transform: translateX(var(--x)) translateY(var(--y));
@@ -522,7 +515,7 @@ body::after{
 }
 
 .footer button:hover{
-  --y: -1px;
+  --y: -2px;
   background:#21314a;
   border-color:#3b5172;
 }
@@ -531,14 +524,19 @@ body::after{
   --y: 0px;
 }
 
-/* Per-button fine-tuning: start with BIG offsets so we can confirm it works, then dial in */
-.footer button[data-act="prev"]  { --x: -120px; }
-.footer button[data-act="today"] { --x: -60px; }
-.footer button[data-act="next"]  { --x: -20px; }
-.footer button[data-act="mode"]  { --x:  20px; }
-.footer button[data-act="open"]  { --x:  60px; }
-.footer button[data-act="but6"]  { --x: 120px; }
-.footer button[data-act="but7"]  { --x: 180px; }
+.footer button.is-firing{
+  outline: 2px solid rgba(255,255,255,.55);
+  outline-offset: 2px;
+}
+
+/* Per-button fine-tuning: start with HUGE offsets so movement is undeniable, then dial in */
+.footer button[data-act="prev"]  { --x: 75px; }
+.footer button[data-act="today"] { --x: 95px; }
+.footer button[data-act="next"]  { --x: 110px; }
+.footer button[data-act="mode"]  { --x:  130px; }
+.footer button[data-act="open"]  { --x:  145px; }
+.footer button[data-act="but6"]  { --x:  160px; }
+.footer button[data-act="but7"]  { --x:  190px; }
 
 /* ---- Slide-out menu ----------------------------------------------------- */
 #gear{position:fixed;top:14px;right:14px;background:#1a2333;border:1px solid #2a3750;color:#f2f5f9;border-radius:10px;padding:10px 12px;font-weight:600;cursor:pointer;z-index:20}
@@ -559,7 +557,7 @@ body::after{
 
 <div class="wrap">
   {{ people|json_script:"people-data" }}
-  <h1>DayBuddy – Week View VERSION 35</h1>
+  <h1>DayBuddy – Week View VERSION 38</h1>
   <div id="updated-at" style="text-align:left;opacity:.65;font-size:13px;margin-top:0;">
     Updated at —
   </div>
@@ -941,20 +939,17 @@ function getAnchor(){
 const anchor = getAnchor();
 
 document.querySelector('[data-act="prev"]').onclick = () => {
-  const d = new Date(anchor);
-  d.setDate(d.getDate() - 7);
-  goDate(d.getFullYear(), d.getMonth()+1, d.getDate());
-};
-
-document.querySelector('[data-act="next"]').onclick = () => {
-  const d = new Date(anchor);
-  d.setDate(d.getDate() + 7);
-  goDate(d.getFullYear(), d.getMonth()+1, d.getDate());
+  window.location.href = 'http://161.35.180.75:8821/houseboard/daybuddy/week/';
 };
 
 document.querySelector('[data-act="today"]').onclick = () => {
-  goDate(now.getFullYear(), now.getMonth()+1, now.getDate());
+  window.location.href = 'http://161.35.180.75:8821/houseboard/daybuddy/';
 };
+
+document.querySelector('[data-act="next"]').onclick = () => {
+  window.location.href = 'http://192.168.1.237:8080/houseboard/security/';
+};
+
 
 // People data for drawer
 const PEOPLE = JSON.parse(document.getElementById('people-data').textContent);
@@ -1635,9 +1630,15 @@ async function loadHouseHealth(){
   try {
     // CANDIDATE ENDPOINTS:
     // Adjust these URLs to match your actual house temperature API.
-  const candidates = [
-    '/api/houseboard/house_temps/',
-  ];
+    const candidates = [
+      // preferred (same-origin)
+      '/api/houseboard/house_temps/',
+
+      // common alternates (depending on your urls.py include prefixes)
+      '/houseboard/api/houseboard/house_temps/',
+      '/houseboard/api/house_temps/',
+      '/houseboard/house_temps/',
+    ];
 
     let data = null;
     let lastErr = null;
@@ -1648,6 +1649,7 @@ async function loadHouseHealth(){
         const res = await fetch(url + bust, { cache: 'no-store' });
         if (!res.ok) {
           lastErr = new Error('house_health HTTP ' + res.status + ' for ' + url);
+          console.error(lastErr);
           continue;
         }
         data = await res.json();
@@ -1846,7 +1848,10 @@ async function loadHouseHealth(){
     console.error('House health load failed', e);
     listEl.innerHTML = '<div>Error loading house temps</div>';
     summaryEl.textContent = 'Rooms: error';
-    if (updatedEl) updatedEl.textContent = 'Temps updated: error';
+    if (updatedEl) {
+      const msg = (e && e.message) ? e.message : String(e || 'unknown');
+      updatedEl.textContent = 'Temps updated: error (' + msg + ')';
+    }
   }
 }
 
@@ -2054,6 +2059,32 @@ loadHouseHealth();
   });
 
   start();
+})();
+// Button 6 (KILL PiC): trigger the same action as "Archive this photo"
+// Wire this *after* the slideshow code so the archive button listener is already attached.
+(function wireKillPicToArchive(){
+  const killBtn = document.querySelector('.footer button[data-act="but6"]');
+  if (!killBtn) return;
+
+  // Avoid double-binding if this script is reloaded
+  if (killBtn.dataset.boundArchive === '1') return;
+  killBtn.dataset.boundArchive = '1';
+
+  killBtn.addEventListener('click', () => {
+    try {
+      const archiveBtn = document.getElementById('archive-photo-btn');
+      if (!archiveBtn) return;
+
+      // Use the native click() so it hits the exact same handler.
+      archiveBtn.click();
+
+      // Optional: tiny visual feedback on the pill
+      killBtn.classList.add('is-firing');
+      setTimeout(() => killBtn.classList.remove('is-firing'), 120);
+    } catch (err) {
+      console.error('KILL PiC -> archive wiring failed', err);
+    }
+  });
 })();
 
 // --- Rangers schedule card ---
