@@ -475,7 +475,7 @@ body::after{
   bottom:0;
   background:#707274;
   border-top:1px solid #1a1d22;
-  padding:8px 12px;
+  padding:8px 12px 14px;
 
   /* Keep 7 buttons, but size columns to the pill content so they can sit closer together */
   display:grid;
@@ -524,8 +524,53 @@ body::after{
   --y: 0px;
 }
 
-.footer button.is-firing{
-  outline: 2px solid rgba(255,255,255,.55);
+ .footer button.is-firing{
+   outline: 2px solid rgba(255,255,255,.55);
+   outline-offset: 2px;
+ }
+
+/* Footer status line (archive feedback) */
+.footer-status{
+  grid-column:1 / -1;
+  justify-self:center;
+  text-align:center;
+  font-size:16px;
+  font-weight:700;
+  letter-spacing:0.2px;
+  margin-top:4px;
+  min-height:20px;           /* prevents layout jump when text clears */
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.25);
+  background:rgba(0,0,0,.20);
+  color:#f2f5f9;
+}
+.footer-status.working{
+  background:rgba(255, 210, 125, 0.18);
+  border-color:rgba(255, 210, 125, 0.55);
+}
+.footer-status.ok{
+  background:rgba(46, 204, 113, 0.18);
+  border-color:rgba(46, 204, 113, 0.55);
+}
+.footer-status.err{
+  background:rgba(231, 76, 60, 0.18);
+  border-color:rgba(231, 76, 60, 0.65);
+}
+
+/* Make KILL PiC visually distinct */
+.footer button[data-act="but6"]{
+  background:#7a0a0a;
+  color:#ffffff;
+  border-color:#ff2b2b;
+  text-transform:uppercase;
+}
+.footer button[data-act="but6"]:hover{
+  background:#9b0d0d;
+  border-color:#ff4a4a;
+}
+.footer button[data-act="but6"].is-firing{
+  outline: 3px solid rgba(255, 255, 255, 0.75);
   outline-offset: 2px;
 }
 
@@ -907,6 +952,7 @@ body::after{
   <button data-act="open">RELOAD</button>
   <button data-act="but6">KILL PiC</button>
   <button data-act="but7">LIKE PiC</button>
+  <div id="archive-status" class="footer-status" aria-live="polite"></div>
 </div>
 
 <script>
@@ -919,6 +965,31 @@ function goDate(y,m,d){
 }
 
 const now = new Date();
+
+// --- Archive feedback (shown in footer) ---
+let __archiveStatusTimer = null;
+function setArchiveStatus(message, kind = '', autoClearMs = 0){
+  const el = document.getElementById('archive-status');
+  if (!el) return;
+
+  // Clear any pending auto-clear
+  if (__archiveStatusTimer) {
+    clearTimeout(__archiveStatusTimer);
+    __archiveStatusTimer = null;
+  }
+
+  el.classList.remove('working','ok','err');
+  if (kind) el.classList.add(kind);
+  el.textContent = message || '';
+
+  if (autoClearMs && message) {
+    __archiveStatusTimer = setTimeout(() => {
+      el.classList.remove('working','ok','err');
+      el.textContent = '';
+      __archiveStatusTimer = null;
+    }, autoClearMs);
+  }
+}
 
 // Show a small "Updated at" line under the heading
 (function(){
@@ -2026,21 +2097,32 @@ loadHouseHealth();
       if (!currentId) return;
       try{
         ARCHIVE_BTN.disabled = true;
+
+        // Explicit feedback (works for both on-screen click and KILL PiC delegation)
+        setArchiveStatus('Archiving…', 'working');
+
         const res = await fetch('/houseboard/daybuddy/photos/archive', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({id: currentId})
         });
         if (!res.ok) {
-          console.error('Archive failed', await res.text());
+          const txt = await res.text();
+          console.error('Archive failed', txt);
           META.textContent = 'Archive failed.';
+          setArchiveStatus('Archive failed', 'err', 6000);
           return;
         }
+
         META.textContent = 'Photo archived. Loading next photo…';
+        setArchiveStatus('Photo archived. Loading next…', 'ok', 2500);
+
         await loadOne();
       }catch(e){
         console.error(e);
         META.textContent = 'Archive failed.';
+        const msg = (e && e.message) ? e.message : 'unknown error';
+        setArchiveStatus('Archive failed (' + msg + ')', 'err', 7000);
       }finally{
         ARCHIVE_BTN.disabled = false;
       }
@@ -2073,16 +2155,23 @@ loadHouseHealth();
   killBtn.addEventListener('click', () => {
     try {
       const archiveBtn = document.getElementById('archive-photo-btn');
-      if (!archiveBtn) return;
+      if (!archiveBtn) {
+        setArchiveStatus('Archive button not found', 'err', 6000);
+        return;
+      }
+
+      // Immediate feedback on physical-button press
+      setArchiveStatus('Archiving… (KILL PiC)', 'working');
 
       // Use the native click() so it hits the exact same handler.
       archiveBtn.click();
 
-      // Optional: tiny visual feedback on the pill
+      // Clear/obvious visual feedback on the pill (kiosk-friendly duration)
       killBtn.classList.add('is-firing');
-      setTimeout(() => killBtn.classList.remove('is-firing'), 120);
+      setTimeout(() => killBtn.classList.remove('is-firing'), 550);
     } catch (err) {
       console.error('KILL PiC -> archive wiring failed', err);
+      setArchiveStatus('Archive failed (wiring error)', 'err', 7000);
     }
   });
 })();
